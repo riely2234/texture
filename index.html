@@ -6,450 +6,866 @@
 <title>ATLAS — Texture Packer</title>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --c0:#050507;--c1:#0c0c10;--c2:#13131a;--c3:#1c1c26;--c4:#2a2a3a;--c5:#3d3d55;
-  --hi:#7fff6e;--hi2:#ff6e7f;--hi3:#6ebbff;
-  --tx:#e8e8f0;--tx2:#9090a8;--tx3:#55556a;
-  --r:10px;
-  --fd:'Bebas Neue',sans-serif;
-  --fb:'Outfit',sans-serif;
+
+:root {
+  --ink:    #04050a;
+  --bg:     #070810;
+  --s1:     #0d0e1a;
+  --s2:     #111220;
+  --s3:     #181929;
+  --s4:     #1f2035;
+  --line:   #252640;
+  --line2:  #2e3058;
+  --g:      #00ffa3;
+  --g2:     #00cc82;
+  --g-dim:  rgba(0,255,163,.12);
+  --g-glow: rgba(0,255,163,.25);
+  --r:      #ff4d6d;
+  --b:      #4da6ff;
+  --y:      #ffd166;
+  --tx:     #d8daf0;
+  --tx2:    #7880a8;
+  --tx3:    #3d4060;
+  --ff:     'Rajdhani', sans-serif;
+  --fm:     'JetBrains Mono', monospace;
+  --rad:    8px;
 }
-html{scroll-behavior:smooth}
-body{background:var(--c0);color:var(--tx);font-family:var(--fb);font-weight:400;min-height:100vh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 10% 0%,rgba(127,255,110,.06) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 90% 100%,rgba(110,187,255,.05) 0%,transparent 60%);pointer-events:none;z-index:0}
-body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");pointer-events:none;z-index:0}
-.page{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:0 24px 80px}
-.header{padding:48px 0 40px;display:flex;align-items:center;gap:20px;border-bottom:1px solid var(--c4);margin-bottom:48px}
-.header-icon{width:56px;height:56px;flex-shrink:0}
-.header-icon svg{width:100%;height:100%}
-.header-eyebrow{font-size:11px;font-weight:500;letter-spacing:4px;text-transform:uppercase;color:var(--hi);margin-bottom:4px;opacity:.8}
-.header-title{font-family:var(--fd);font-size:52px;letter-spacing:3px;line-height:.9;background:linear-gradient(135deg,#fff 0%,var(--tx2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.header-sub{font-size:13px;color:var(--tx3);margin-top:6px;font-weight:300}
-.card{background:var(--c1);border:1px solid var(--c4);border-radius:var(--r);overflow:hidden}
-.card+.card,.card+.settings-row,.settings-row+.card{margin-top:16px}
-.drop-zone{padding:56px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;cursor:pointer;position:relative;transition:background .2s;background:var(--c1)}
-.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.drop-zone:hover,.drop-zone.over{background:var(--c2)}
-.drop-zone.over{border-color:var(--hi)}
-.drop-glyph{width:72px;height:72px;border-radius:16px;background:var(--c3);border:1px solid var(--c4);display:flex;align-items:center;justify-content:center;transition:border-color .2s,background .2s}
-.drop-zone:hover .drop-glyph,.drop-zone.over .drop-glyph{border-color:var(--hi);background:rgba(127,255,110,.07)}
-.drop-glyph svg{width:32px;height:32px}
-.drop-title{font-size:17px;font-weight:600}
-.drop-sub{font-size:12px;color:var(--tx3);font-weight:300;letter-spacing:.5px}
-.drop-badge{background:var(--c3);border:1px solid var(--c4);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:500;letter-spacing:1px;color:var(--tx3);text-transform:uppercase}
-.settings-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-@media(max-width:520px){.settings-row{grid-template-columns:1fr 1fr}.settings-row .field:last-child{grid-column:1/-1}}
-.field{background:var(--c1);border:1px solid var(--c4);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
-.field:focus-within{border-color:var(--c5)}
-.field-label{font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--tx3)}
-.field select,.field input[type=number]{background:transparent;border:none;outline:none;color:var(--tx);font-family:var(--fb);font-size:15px;font-weight:500;appearance:none;-webkit-appearance:none;width:100%;cursor:pointer}
-.field select option{background:var(--c2)}
-.progress-panel{display:none;padding:28px}
-.progress-panel.show{display:block}
-.progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px}
-.progress-stage{font-family:var(--fd);font-size:28px;letter-spacing:2px}
-.progress-pct{font-family:var(--fd);font-size:38px;letter-spacing:1px;color:var(--hi);line-height:1}
-.progress-track{height:4px;background:var(--c3);border-radius:2px;overflow:hidden;margin-bottom:14px}
-.progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--hi) 0%,#b8ff60 100%);border-radius:2px;transition:width .12s ease-out}
-.progress-msg{font-size:12px;color:var(--tx3);font-weight:300;min-height:18px;letter-spacing:.3px}
-.phases{display:flex;gap:8px;margin-top:20px}
-.phase{flex:1;height:3px;border-radius:2px;background:var(--c3);transition:background .3s}
-.phase.done{background:var(--hi)}
-.phase.active{background:rgba(127,255,110,.4)}
-.stats-grid{display:none;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--c4);border:1px solid var(--c4);border-radius:var(--r);overflow:hidden;margin-top:16px}
-.stats-grid.show{display:grid}
-@media(max-width:520px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
-.stat{background:var(--c1);padding:20px;display:flex;flex-direction:column;gap:6px}
-.stat-num{font-family:var(--fd);font-size:34px;letter-spacing:1px;line-height:1}
-.stat-num.green{color:var(--hi)}.stat-num.red{color:var(--hi2)}.stat-num.blue{color:var(--hi3)}
-.stat-label{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--tx3)}
-.preview-card{display:none;margin-top:16px}
-.preview-card.show{display:block}
-.preview-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:var(--c2);border-bottom:1px solid var(--c4)}
-.preview-header-left{display:flex;align-items:center;gap:10px}
-.preview-dot{width:8px;height:8px;border-radius:50%;background:var(--hi);box-shadow:0 0 8px var(--hi);animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.preview-label{font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--tx2)}
-.preview-dims{font-size:12px;color:var(--tx3);font-weight:300}
-.preview-body{background:repeating-conic-gradient(#111118 0% 25%,#0c0c10 0% 50%) 0 0/20px 20px;overflow:auto;max-height:480px}
-#atlasCanvas{display:block;max-width:100%;width:100%}
-#dlBtn{display:none;width:100%;margin-top:16px;padding:0;background:none;border:none;cursor:pointer}
-#dlBtn.show{display:block}
-.dl-inner{display:flex;align-items:center;justify-content:center;gap:12px;padding:20px 32px;background:var(--hi);border-radius:var(--r);transition:transform .15s,filter .15s}
-#dlBtn:hover .dl-inner{transform:translateY(-2px);filter:brightness(1.08)}
-#dlBtn:active .dl-inner{transform:translateY(0)}
-#dlBtn:disabled .dl-inner{background:var(--c4);cursor:wait}
-.dl-text{font-family:var(--fd);font-size:22px;letter-spacing:3px;color:#000}
-.dl-icon{color:#000;flex-shrink:0}
-.warn{display:none;margin-top:12px;padding:14px 18px;background:rgba(255,110,127,.07);border:1px solid rgba(255,110,127,.25);border-radius:var(--r);font-size:12px;color:#ff9faa;line-height:1.6;font-weight:300}
-.warn.show{display:block}
-.warn strong{color:var(--hi2);font-weight:600}
-.page>*{opacity:0;transform:translateY(12px);animation:fadeUp .5s ease forwards}
-.header{animation-delay:.05s}.drop-zone{animation-delay:.1s}.settings-row{animation-delay:.15s}
-.progress-panel{animation-delay:0s;opacity:1;transform:none}
-@keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+
+html { height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--tx);
+  font-family: var(--ff);
+  font-weight: 400;
+  min-height: 100%;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ── Background layers ── */
+.bg-grid {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,255,163,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,163,.028) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.bg-glow {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 55% at 15% -5%, rgba(0,255,163,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 105%, rgba(77,166,255,.05) 0%, transparent 70%);
+}
+
+/* ── Page ── */
+.page {
+  position: relative; z-index: 1;
+  max-width: 900px; margin: 0 auto;
+  padding: 0 24px 100px;
+}
+
+/* ── Header ── */
+.hdr {
+  padding: 52px 0 44px;
+  display: flex; align-items: center; gap: 24px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 40px;
+  animation: slideDown .6s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes slideDown { from { opacity:0; transform:translateY(-16px) } to { opacity:1; transform:none } }
+
+.hdr-logo {
+  width: 60px; height: 60px; flex-shrink: 0;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  gap: 4px; padding: 0;
+}
+
+.hdr-logo span {
+  border-radius: 3px;
+  background: var(--s4);
+}
+
+.hdr-logo span:nth-child(1) { background: var(--g); opacity: .9; }
+.hdr-logo span:nth-child(2) { background: var(--b); opacity: .6; }
+.hdr-logo span:nth-child(3) { background: var(--y); opacity: .5; }
+.hdr-logo span:nth-child(4) { background: var(--r); opacity: .7; }
+
+.hdr-info { flex: 1; }
+
+.hdr-tag {
+  font-family: var(--fm);
+  font-size: 10px; font-weight: 400;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: var(--g); opacity: .7;
+  margin-bottom: 5px;
+}
+
+.hdr-title {
+  font-family: var(--ff);
+  font-size: 58px; font-weight: 700;
+  letter-spacing: 6px; line-height: .88;
+  color: #fff;
+  text-shadow: 0 0 60px rgba(0,255,163,.2);
+}
+
+.hdr-sub {
+  font-family: var(--fm);
+  font-size: 11px; font-weight: 300;
+  color: var(--tx3); margin-top: 8px;
+  letter-spacing: .5px;
+}
+
+.hdr-badge {
+  font-family: var(--fm);
+  font-size: 10px; font-weight: 500;
+  background: var(--g-dim);
+  border: 1px solid rgba(0,255,163,.2);
+  color: var(--g);
+  padding: 5px 12px; border-radius: 20px;
+  letter-spacing: 1px; white-space: nowrap;
+}
+
+/* ── Panels ── */
+.panel {
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--rad);
+  overflow: hidden;
+  animation: fadeUp .5s cubic-bezier(.22,1,.36,1) both;
+}
+
+.panel + .panel, .panel + .cfg, .cfg + .panel { margin-top: 14px; }
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px) } to { opacity:1; transform:none } }
+
+.panel:nth-child(2) { animation-delay: .08s }
+.panel:nth-child(3) { animation-delay: .13s }
+
+/* ── Drop zone ── */
+.drop {
+  padding: 60px 32px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  cursor: pointer; position: relative;
+  transition: background .2s;
+  background: var(--s1);
+}
+
+.drop input { position: absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+
+.drop:hover, .drop.over { background: var(--s2); }
+.drop.over { border-color: var(--g); box-shadow: 0 0 0 1px var(--g) inset, 0 0 30px var(--g-glow); }
+
+.drop-orb {
+  width: 80px; height: 80px; border-radius: 20px;
+  background: var(--s3); border: 1px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .25s; position: relative;
+}
+
+.drop-orb::after {
+  content:'';position:absolute;inset:-1px;border-radius:20px;
+  background: radial-gradient(circle at 50% 0%, rgba(0,255,163,.15) 0%, transparent 70%);
+  opacity:0;transition:opacity .25s;
+}
+
+.drop:hover .drop-orb, .drop.over .drop-orb {
+  border-color: var(--g); background: rgba(0,255,163,.05);
+}
+.drop:hover .drop-orb::after, .drop.over .drop-orb::after { opacity:1; }
+
+.drop-orb svg { width:34px;height:34px; }
+
+.drop-title { font-size:20px; font-weight:600; color:#fff; letter-spacing:.5px; }
+.drop-hint  { font-family:var(--fm);font-size:11px; color:var(--tx3); font-weight:300; }
+
+.drop-pill {
+  font-family: var(--fm); font-size:10px; font-weight:500;
+  background: var(--s3); border:1px solid var(--line2);
+  padding:4px 12px; border-radius:20px; color:var(--tx3);
+  letter-spacing:1px; text-transform:uppercase;
+}
+
+/* ── Config row ── */
+.cfg {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  margin-top: 14px;
+}
+
+@media(max-width:540px) {
+  .cfg { grid-template-columns: 1fr 1fr; }
+  .cfg .fld:last-child { grid-column: 1/-1; }
+}
+
+.fld {
+  background: var(--s1); border: 1px solid var(--line);
+  border-radius: var(--rad); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 7px;
+  transition: border-color .2s;
+}
+.fld:focus-within { border-color: var(--line2); }
+
+.fld-lbl {
+  font-family: var(--fm); font-size: 9px; font-weight: 500;
+  letter-spacing: 2.5px; text-transform: uppercase; color: var(--tx3);
+}
+
+.fld select, .fld input {
+  background: transparent; border: none; outline: none;
+  color: var(--tx); font-family: var(--ff); font-size: 16px;
+  font-weight: 600; appearance: none; -webkit-appearance: none;
+  width: 100%; cursor: pointer; letter-spacing: .5px;
+}
+.fld select option { background: var(--s2); }
+
+/* ── Progress panel ── */
+.prog { padding: 28px 28px 24px; display:none; }
+.prog.on { display:block; }
+
+.prog-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.prog-stage {
+  font-family: var(--ff); font-size: 11px; font-weight: 600;
+  letter-spacing: 3px; text-transform: uppercase; color: var(--g);
+  margin-bottom: 6px; opacity: .8;
+}
+
+.prog-label {
+  font-family: var(--ff); font-size: 32px; font-weight: 700;
+  letter-spacing: 1px; color: #fff; line-height: 1;
+}
+
+.prog-num {
+  font-family: var(--ff); font-size: 56px; font-weight: 700;
+  line-height: 1; color: var(--g);
+  text-shadow: 0 0 30px var(--g-glow);
+  letter-spacing: -1px;
+}
+
+.prog-unit {
+  font-size: 20px; font-weight: 400; opacity: .6; letter-spacing: 2px;
+}
+
+/* Track */
+.track {
+  height: 2px; background: var(--s4);
+  border-radius: 1px; overflow: visible;
+  margin-bottom: 12px; position: relative;
+}
+
+.fill {
+  height: 100%; width: 0%;
+  background: var(--g);
+  border-radius: 1px;
+  transition: width .15s ease-out;
+  position: relative;
+  box-shadow: 0 0 8px var(--g);
+}
+
+.fill::after {
+  content:'';position:absolute;right:-3px;top:-3px;
+  width:8px;height:8px;border-radius:50%;background:var(--g);
+  box-shadow:0 0 10px var(--g);
+}
+
+.prog-msg {
+  font-family: var(--fm); font-size: 11px; font-weight: 300;
+  color: var(--tx3); min-height: 16px; letter-spacing: .3px;
+}
+
+/* Phase dots */
+.phases {
+  display: flex; gap: 6px; margin-top: 18px; align-items: center;
+}
+
+.phase-item {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--fm); font-size: 9px; font-weight: 500;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--tx3); transition: color .3s;
+}
+
+.phase-item.done { color: var(--g); }
+.phase-item.active { color: #fff; }
+
+.phase-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--s4); border: 1px solid var(--line2);
+  transition: all .3s; flex-shrink: 0;
+}
+
+.phase-item.done   .phase-dot { background: var(--g); border-color: var(--g); box-shadow: 0 0 6px var(--g); }
+.phase-item.active .phase-dot { background: #fff; border-color: #fff; box-shadow: 0 0 8px #fff; animation: blink .8s ease-in-out infinite; }
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.phase-sep { width: 20px; height: 1px; background: var(--line2); flex-shrink:0; }
+
+/* ── Stats ── */
+.stats {
+  display: none; margin-top: 14px;
+  display: none; grid-template-columns: repeat(4,1fr);
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--rad); overflow: hidden;
+}
+.stats.on { display: grid; }
+
+@media(max-width:540px) { .stats { grid-template-columns: repeat(2,1fr); } }
+
+.stat {
+  background: var(--s1); padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+
+.stat-n {
+  font-family: var(--ff); font-size: 36px; font-weight: 700;
+  line-height: 1; letter-spacing: -1px;
+}
+
+.stat-n.g { color: var(--g); text-shadow: 0 0 20px var(--g-glow); }
+.stat-n.r { color: var(--r); }
+.stat-n.b { color: var(--b); }
+.stat-n.w { color: #fff; }
+
+.stat-l {
+  font-family: var(--fm); font-size: 9px; font-weight: 500;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--tx3);
+}
+
+/* ── Preview ── */
+.prev-wrap { display:none; margin-top:14px; }
+.prev-wrap.on { display:block; }
+
+.prev-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 18px;
+  background: var(--s2); border-bottom: 1px solid var(--line);
+}
+
+.prev-bar-l { display:flex; align-items:center; gap:10px; }
+
+.live-dot {
+  width:7px;height:7px;border-radius:50%;background:var(--g);
+  box-shadow: 0 0 8px var(--g); animation: blink 2s ease-in-out infinite;
+}
+
+.prev-label { font-family:var(--fm);font-size:10px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--tx2); }
+.prev-dim   { font-family:var(--fm);font-size:11px;color:var(--tx3);font-weight:300; }
+
+.prev-body {
+  background: repeating-conic-gradient(#0d0e18 0% 25%, #0a0b14 0% 50%) 0 0/18px 18px;
+  overflow: auto; max-height: 500px;
+}
+
+#atlasCanvas { display:block;max-width:100%;width:100%; }
+
+/* ── Warning ── */
+.warn {
+  display:none; margin-top:12px; padding:14px 18px;
+  background: rgba(255,77,109,.06); border:1px solid rgba(255,77,109,.2);
+  border-radius: var(--rad); font-family:var(--fm); font-size:11px;
+  color: #ff8fa3; line-height:1.7; font-weight:300;
+}
+.warn.on { display:block; }
+.warn strong { color:var(--r);font-weight:500; }
+
+/* ── Download ── */
+#dlBtn {
+  display:none;width:100%;margin-top:14px;
+  background:none;border:none;cursor:pointer;padding:0;
+}
+#dlBtn.on { display:block; }
+
+.dl-wrap {
+  display:flex;align-items:center;justify-content:space-between;
+  padding: 0 28px;
+  height: 64px;
+  background: var(--g);
+  border-radius: var(--rad);
+  transition: transform .15s, box-shadow .15s;
+  gap: 12px;
+}
+
+#dlBtn:hover .dl-wrap { transform:translateY(-2px); box-shadow: 0 8px 30px rgba(0,255,163,.3); }
+#dlBtn:active .dl-wrap { transform:translateY(0); }
+#dlBtn:disabled .dl-wrap { background:var(--s4); box-shadow:none; cursor:wait; }
+
+.dl-left { display:flex;align-items:center;gap:16px; }
+
+.dl-icon-wrap {
+  width:36px;height:36px;border-radius:8px;
+  background:rgba(0,0,0,.15);
+  display:flex;align-items:center;justify-content:center;
+}
+
+.dl-main {
+  font-family:var(--ff);font-size:20px;font-weight:700;
+  letter-spacing:2px;color:#000;line-height:1;
+}
+
+.dl-sub {
+  font-family:var(--fm);font-size:9px;font-weight:500;
+  letter-spacing:1.5px;color:rgba(0,0,0,.5);text-transform:uppercase;
+}
+
+.dl-arr { color:#000; }
 </style>
 </head>
 <body>
-<div class="page">
-  <div class="header">
-    <div class="header-icon">
-      <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="26" height="26" rx="4" fill="#7fff6e" opacity=".9"/>
-        <rect x="30" width="26" height="12" rx="4" fill="#7fff6e" opacity=".5"/>
-        <rect x="30" y="16" width="26" height="10" rx="4" fill="#6ebbff" opacity=".6"/>
-        <rect y="30" width="12" height="26" rx="4" fill="#7fff6e" opacity=".4"/>
-        <rect x="16" y="30" width="10" height="26" rx="4" fill="#ff6e7f" opacity=".5"/>
-        <rect x="30" y="30" width="26" height="26" rx="4" fill="#7fff6e" opacity=".7"/>
-      </svg>
-    </div>
-    <div class="header-text">
-      <div class="header-eyebrow">Texture Packer</div>
-      <div class="header-title">ATLAS</div>
-      <div class="header-sub">MaxRects · Auto-grow · Crash-proof · Unlimited size</div>
-    </div>
-  </div>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
 
-  <div class="card">
-    <div class="drop-zone" id="dropZone">
+<div class="page">
+
+  <!-- Header -->
+  <header class="hdr">
+    <div class="hdr-logo">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="hdr-info">
+      <div class="hdr-tag">// texture packer</div>
+      <div class="hdr-title">ATLAS</div>
+      <div class="hdr-sub">maxrects · auto-grow · zero-crash architecture</div>
+    </div>
+    <div class="hdr-badge">v4.0</div>
+  </header>
+
+  <!-- Drop zone -->
+  <div class="panel">
+    <div class="drop" id="dropZone">
       <input type="file" id="zipInput" accept=".zip">
-      <div class="drop-glyph">
-        <svg viewBox="0 0 32 32" fill="none">
-          <path d="M16 4v18M16 4l-6 6M16 4l6 6" stroke="#7fff6e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M6 22v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4" stroke="#7fff6e" stroke-width="2" stroke-linecap="round"/>
+      <div class="drop-orb">
+        <svg viewBox="0 0 34 34" fill="none">
+          <path d="M17 5v17M17 5l-7 7M17 5l7 7" stroke="var(--g)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5 23v4a2 2 0 002 2h20a2 2 0 002-2v-4" stroke="var(--g)" stroke-width="1.8" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="drop-title">Drop your texture ZIP here</div>
-      <div class="drop-sub">or click to browse — PNG, JPG, WEBP supported</div>
-      <div class="drop-badge">ZIP file</div>
+      <div class="drop-title">Drop your texture ZIP</div>
+      <div class="drop-hint">or click to browse files</div>
+      <div class="drop-pill">PNG · JPG · WEBP · GIF</div>
     </div>
   </div>
 
-  <div class="settings-row">
-    <div class="field">
-      <div class="field-label">Start Size</div>
-      <select id="startSize"><option value="512">512px</option><option value="1024" selected>1024px</option><option value="2048">2048px</option></select>
+  <!-- Config -->
+  <div class="cfg">
+    <div class="fld">
+      <div class="fld-lbl">Start Size</div>
+      <select id="startSize">
+        <option value="512">512 px</option>
+        <option value="1024" selected>1024 px</option>
+        <option value="2048">2048 px</option>
+      </select>
     </div>
-    <div class="field">
-      <div class="field-label">Padding (px)</div>
+    <div class="fld">
+      <div class="fld-lbl">Padding</div>
       <input type="number" id="padding" value="2" min="0" max="64">
     </div>
-    <div class="field">
-      <div class="field-label">Max Size</div>
-      <select id="maxSize"><option value="4096">4096px</option><option value="8192" selected>8192px</option><option value="16384">16384px</option></select>
+    <div class="fld">
+      <div class="fld-lbl">Max Size</div>
+      <select id="maxSize">
+        <option value="4096">4096 px</option>
+        <option value="8192" selected>8192 px</option>
+        <option value="16384">16384 px</option>
+      </select>
     </div>
   </div>
 
-  <div class="card progress-panel" id="progressPanel">
-    <div class="progress-top">
-      <div class="progress-stage" id="stageName">READY</div>
-      <div class="progress-pct" id="pctLabel">—</div>
+  <!-- Progress -->
+  <div class="panel prog" id="prog">
+    <div class="prog-head">
+      <div>
+        <div class="prog-stage" id="stageTxt">READY</div>
+        <div class="prog-label" id="labelTxt">Drop a ZIP to begin</div>
+      </div>
+      <div class="prog-num"><span id="pctTxt">—</span><span class="prog-unit">%</span></div>
     </div>
-    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="progress-msg" id="progressMsg">Drop a ZIP to begin</div>
-    <div class="phases"><div class="phase" id="ph0"></div><div class="phase" id="ph1"></div><div class="phase" id="ph2"></div><div class="phase" id="ph3"></div></div>
+    <div class="track"><div class="fill" id="fillBar"></div></div>
+    <div class="prog-msg" id="msgTxt"></div>
+    <div class="phases">
+      <div class="phase-item" id="ph0"><div class="phase-dot"></div>Read</div>
+      <div class="phase-sep"></div>
+      <div class="phase-item" id="ph1"><div class="phase-dot"></div>Pack</div>
+      <div class="phase-sep"></div>
+      <div class="phase-item" id="ph2"><div class="phase-dot"></div>Draw</div>
+      <div class="phase-sep"></div>
+      <div class="phase-item" id="ph3"><div class="phase-dot"></div>Done</div>
+    </div>
   </div>
 
-  <div class="stats-grid" id="statsGrid">
-    <div class="stat"><div class="stat-num green" id="stPacked">—</div><div class="stat-label">Packed</div></div>
-    <div class="stat"><div class="stat-num red" id="stSkipped">—</div><div class="stat-label">Skipped</div></div>
-    <div class="stat"><div class="stat-num blue" id="stSize">—</div><div class="stat-label">Atlas Size</div></div>
-    <div class="stat"><div class="stat-num" id="stFill">—</div><div class="stat-label">Fill %</div></div>
+  <!-- Stats -->
+  <div class="stats" id="stats">
+    <div class="stat"><div class="stat-n g" id="sn0">—</div><div class="stat-l">Packed</div></div>
+    <div class="stat"><div class="stat-n r" id="sn1">—</div><div class="stat-l">Skipped</div></div>
+    <div class="stat"><div class="stat-n b" id="sn2">—</div><div class="stat-l">Atlas Size</div></div>
+    <div class="stat"><div class="stat-n w" id="sn3">—</div><div class="stat-l">Fill %</div></div>
   </div>
 
-  <div class="card preview-card" id="previewCard">
-    <div class="preview-header">
-      <div class="preview-header-left"><div class="preview-dot"></div><div class="preview-label">Atlas Preview</div></div>
-      <div class="preview-dims" id="previewDims">—</div>
+  <!-- Preview -->
+  <div class="panel prev-wrap" id="prevWrap">
+    <div class="prev-bar">
+      <div class="prev-bar-l"><div class="live-dot"></div><div class="prev-label">Preview</div></div>
+      <div class="prev-dim" id="prevDim">—</div>
     </div>
-    <div class="preview-body"><canvas id="atlasCanvas"></canvas></div>
+    <div class="prev-body"><canvas id="atlasCanvas"></canvas></div>
   </div>
 
   <div class="warn" id="warnBox"></div>
 
-  <button id="dlBtn" onclick="startDownload()">
-    <div class="dl-inner">
-      <div class="dl-text">DOWNLOAD ATLAS PNG</div>
-      <svg class="dl-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M5 14l7 7 7-7"/><path d="M3 21h18"/></svg>
+  <!-- Download -->
+  <button id="dlBtn" onclick="doDownload()">
+    <div class="dl-wrap">
+      <div class="dl-left">
+        <div class="dl-icon-wrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M5 14l7 7 7-7"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
+        </div>
+        <div>
+          <div class="dl-main" id="dlTxt">DOWNLOAD ATLAS PNG</div>
+          <div class="dl-sub">lossless · rgba · full resolution</div>
+        </div>
+      </div>
+      <svg class="dl-arr" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </div>
   </button>
+
 </div>
 
 <script>
-const WORKER_SRC = `
+// ═══════════════════════════════════════════════════════════════════
+//  CRITICAL MEMORY DESIGN:
+//  - NEVER store blobs globally. Each blob is decompressed from ZIP,
+//    used immediately, then dereferenced so GC can reclaim it.
+//  - NEVER keep decoded Image objects alive. img.src='' right after draw.
+//  - Only store: {name, w, h} metadata + JSZip entry references.
+//  - JSZip entries are lazy — they only hold compressed bytes until
+//    .async('blob') is called, so they're cheap to keep.
+//  - Pack math runs in a Worker (off main thread, no UI jank).
+//  - PNG encode runs in the same Worker.
+// ═══════════════════════════════════════════════════════════════════
+
+const WK = `
 class MaxRects {
   constructor(w,h){this.W=w;this.H=h;this.free=[{x:0,y:0,w,h}];}
   insert(rw,rh){
-    let best=null,bestS=Infinity;
-    for(const f of this.free){if(rw<=f.w&&rh<=f.h){const s=Math.min(f.w-rw,f.h-rh);if(s<bestS){bestS=s;best=f;}}}
+    let best=null,bs=Infinity;
+    for(const f of this.free)if(rw<=f.w&&rh<=f.h){const s=Math.min(f.w-rw,f.h-rh);if(s<bs){bs=s;best=f;}}
     if(!best)return null;
-    const p={x:best.x,y:best.y,w:rw,h:rh};
-    this._split(p);this._prune();return{x:p.x,y:p.y};
+    const p={x:best.x,y:best.y,w:rw,h:rh};this._sp(p);this._pr();return{x:p.x,y:p.y};
   }
-  _split(p){
+  _sp(p){
     const n=[];
     for(const f of this.free){
-      if(!this._ov(p,f)){n.push(f);continue;}
+      if(!(p.x+p.w>f.x&&p.x<f.x+f.w&&p.y+p.h>f.y&&p.y<f.y+f.h)){n.push(f);continue;}
       if(p.x>f.x)n.push({x:f.x,y:f.y,w:p.x-f.x,h:f.h});
-      if(p.x+p.w<f.x+f.w)n.push({x:p.x+p.w,y:f.y,w:(f.x+f.w)-(p.x+p.w),h:f.h});
+      if(p.x+p.w<f.x+f.w)n.push({x:p.x+p.w,y:f.y,w:f.x+f.w-p.x-p.w,h:f.h});
       if(p.y>f.y)n.push({x:f.x,y:f.y,w:f.w,h:p.y-f.y});
-      if(p.y+p.h<f.y+f.h)n.push({x:f.x,y:p.y+p.h,w:f.w,h:(f.y+f.h)-(p.y+p.h)});
+      if(p.y+p.h<f.y+f.h)n.push({x:f.x,y:p.y+p.h,w:f.w,h:f.y+f.h-p.y-p.h});
     }
     this.free=n;
   }
-  _prune(){this.free=this.free.filter((a,i)=>!this.free.some((b,j)=>j!==i&&b.x<=a.x&&b.y<=a.y&&b.x+b.w>=a.x+a.w&&b.y+b.h>=a.y+a.h));}
-  _ov(a,b){return!(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);}
+  _pr(){this.free=this.free.filter((a,i)=>!this.free.some((b,j)=>j!==i&&b.x<=a.x&&b.y<=a.y&&b.x+b.w>=a.x+a.w&&b.y+b.h>=a.y+a.h));}
 }
 
-function tryPack(items,size,pad){
-  const pk=new MaxRects(size,size);const out=[];
+function p2(n){let p=1;while(p<n)p*=2;return p;}
+
+function tryPack(items,sz,pad){
+  const pk=new MaxRects(sz,sz),out=[];
   for(const m of items){
-    if(m.w+pad>size||m.h+pad>size)return null;
+    if(m.w+pad>sz||m.h+pad>sz)return null;
     const pos=pk.insert(m.w+pad,m.h+pad);
     if(!pos)return null;
-    out.push({...m,x:pos.x,y:pos.y});
+    out.push({idx:m.idx,w:m.w,h:m.h,x:pos.x,y:pos.y});
   }
   return out;
 }
 
-function nextPow2(n){let p=1;while(p<n)p*=2;return p;}
-
-async function encodePNG(rgba,W,H){
-  const row=W*4,filt=new Uint8Array(H*(row+1));
+async function mkPNG(rgba,W,H){
+  const row=W*4,f=new Uint8Array(H*(row+1));
   for(let y=0;y<H;y++){
-    const src=y*row,dst=y*(row+1);filt[dst]=1;
-    for(let c=0;c<4;c++)filt[dst+1+c]=rgba[src+c];
-    for(let x=1;x<W;x++){
-      const i=src+x*4,fi=dst+1+x*4;
-      filt[fi]=(rgba[i]-rgba[i-4])&0xff;filt[fi+1]=(rgba[i+1]-rgba[i-3])&0xff;
-      filt[fi+2]=(rgba[i+2]-rgba[i-2])&0xff;filt[fi+3]=(rgba[i+3]-rgba[i-1])&0xff;
-    }
+    const s=y*row,d=y*(row+1);f[d]=1;
+    for(let c=0;c<4;c++)f[d+1+c]=rgba[s+c];
+    for(let x=1;x<W;x++){const i=s+x*4,di=d+1+x*4;f[di]=(rgba[i]-rgba[i-4])&255;f[di+1]=(rgba[i+1]-rgba[i-3])&255;f[di+2]=(rgba[i+2]-rgba[i-2])&255;f[di+3]=(rgba[i+3]-rgba[i-1])&255;}
   }
   let comp;
   if(typeof CompressionStream!=='undefined'){
     const cs=new CompressionStream('deflate-raw'),w=cs.writable.getWriter();
-    w.write(filt);w.close();
-    const chunks=[],r=cs.readable.getReader();
-    while(true){const{done,value}=await r.read();if(done)break;chunks.push(value);}
-    let len=0;chunks.forEach(c=>len+=c.length);comp=new Uint8Array(len);let p=0;
-    chunks.forEach(c=>{comp.set(c,p);p+=c.length;});
+    w.write(f);w.close();
+    const cks=[],r=cs.readable.getReader();
+    for(;;){const{done,value}=await r.read();if(done)break;cks.push(value);}
+    let l=0;cks.forEach(c=>l+=c.length);comp=new Uint8Array(l);let p=0;cks.forEach(c=>{comp.set(c,p);p+=c.length;});
   } else {
-    const BS=65535,bl=Math.ceil(filt.length/BS)||1;
-    comp=new Uint8Array(2+filt.length+bl*5+4);comp[0]=0x78;comp[1]=0x01;
+    const BS=65535,bl=Math.ceil(f.length/BS)||1;
+    comp=new Uint8Array(2+f.length+bl*5+4);comp[0]=120;comp[1]=1;
     let p=2,s=0;
-    for(let b=0;b<bl;b++){
-      const c=Math.min(BS,filt.length-s),last=b===bl-1?1:0;
-      comp[p++]=last;comp[p++]=c&0xff;comp[p++]=(c>>8)&0xff;comp[p++]=(~c)&0xff;comp[p++]=((~c)>>8)&0xff;
-      comp.set(filt.subarray(s,s+c),p);p+=c;s+=c;
-    }
-    let a=1,bv=0;for(const v of filt){a=(a+v)%65521;bv=(bv+a)%65521;}const ad=(bv<<16)|a;
-    comp[p]=(ad>>24)&0xff;comp[p+1]=(ad>>16)&0xff;comp[p+2]=(ad>>8)&0xff;comp[p+3]=ad&0xff;
+    for(let b=0;b<bl;b++){const c=Math.min(BS,f.length-s),last=b===bl-1?1:0;comp[p++]=last;comp[p++]=c&255;comp[p++]=(c>>8)&255;comp[p++]=~c&255;comp[p++]=(~c>>8)&255;comp.set(f.subarray(s,s+c),p);p+=c;s+=c;}
+    let a=1,b=0;for(const v of f){a=(a+v)%65521;b=(b+a)%65521;}const ad=(b<<16)|a;comp[p]=(ad>>24)&255;comp[p+1]=(ad>>16)&255;comp[p+2]=(ad>>8)&255;comp[p+3]=ad&255;
   }
-  const sig=[137,80,78,71,13,10,26,10];
-  const crtab=new Uint32Array(256);
-  for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;crtab[n]=c;}
-  function crc(d){let c=0xffffffff;for(const b of d)c=crtab[(c^b)&0xff]^(c>>>8);return(c^0xffffffff)>>>0;}
-  function chunk(t,d){
-    const tb=new TextEncoder().encode(t),lb=new Uint8Array(4);new DataView(lb.buffer).setUint32(0,d.length);
-    const cd=new Uint8Array(4+d.length);cd.set(tb);cd.set(d,4);
-    const cb=new Uint8Array(4);new DataView(cb.buffer).setUint32(0,crc(cd));
-    return [...lb,...cd,...cb];
-  }
-  const ih=new Uint8Array(13);const dv=new DataView(ih.buffer);
-  dv.setUint32(0,W);dv.setUint32(4,H);ih[8]=8;ih[9]=6;
-  return new Uint8Array([...sig,...chunk('IHDR',ih),...chunk('IDAT',comp),...chunk('IEND',new Uint8Array(0))]);
+  const sig=new Uint8Array([137,80,78,71,13,10,26,10]);
+  const T=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;T[n]=c;}
+  function crc(d){let c=-1>>>0;for(const b of d)c=T[(c^b)&255]^(c>>>8);return(c^-1>>>0)>>>0;}
+  function ck(t,d){const tb=new TextEncoder().encode(t),ln=new Uint8Array(4),cd=new Uint8Array(4+d.length),cr=new Uint8Array(4);new DataView(ln.buffer).setUint32(0,d.length);cd.set(tb);cd.set(d,4);new DataView(cr.buffer).setUint32(0,crc(cd));return new Uint8Array([...ln,...cd,...cr]);}
+  const ih=new Uint8Array(13);const dv=new DataView(ih.buffer);dv.setUint32(0,W);dv.setUint32(4,H);ih[8]=8;ih[9]=6;
+  const chunks=[sig,ck('IHDR',ih),ck('IDAT',comp),ck('IEND',new Uint8Array(0))];
+  let tl=0;chunks.forEach(c=>tl+=c.length);const out=new Uint8Array(tl);let off=0;chunks.forEach(c=>{out.set(c,off);off+=c.length;});
+  return out;
 }
 
 self.onmessage=async function(e){
   const{type,data}=e.data;
   if(type==='pack'){
-    const{meta,startSize,maxSize,pad}=data;
-    meta.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
-    const oversized=[],packable=meta.filter(m=>{
-      if(m.w+pad<=maxSize&&m.h+pad<=maxSize)return true;
-      oversized.push(m.name);return false;
-    });
-    const minReq=packable.reduce((mx,m)=>Math.max(mx,m.w+pad,m.h+pad),0);
-    let size=Math.max(startSize,nextPow2(minReq));
-    self.postMessage({type:'status',stage:'PACKING',msg:'Finding optimal size…',pct:50});
-    let placements=null;
-    while(size<=maxSize){
-      self.postMessage({type:'status',stage:'PACKING',msg:'Trying '+size+'x'+size+'…',pct:50});
-      placements=tryPack(packable,size,pad);
-      if(placements)break;
-      size*=2;
+    const{meta,start,max,pad}=data;
+    meta.sort((a,b)=>b.w*b.h-a.w*a.h);
+    const over=[],ok=meta.filter(m=>{ if(m.w+pad<=max&&m.h+pad<=max)return true;over.push(m.idx);return false;});
+    const minReq=ok.reduce((mx,m)=>Math.max(mx,m.w+pad,m.h+pad),0);
+    let sz=Math.max(start,p2(minReq));
+    self.postMessage({t:'msg',msg:'Finding optimal size…'});
+    let pl=null;
+    while(sz<=max){self.postMessage({t:'msg',msg:'Trying '+sz+'×'+sz+'…'});pl=tryPack(ok,sz,pad);if(pl)break;sz*=2;}
+    const skip=[...over];
+    if(!pl){
+      sz=max;const pb=new MaxRects(sz,sz);pl=[];
+      for(const m of ok){const pos=pb.insert(m.w+pad,m.h+pad);if(pos)pl.push({idx:m.idx,w:m.w,h:m.h,x:pos.x,y:pos.y});else skip.push(m.idx);}
     }
-    const skipped=[...oversized];
-    if(!placements){
-      size=maxSize;const pb=new MaxRects(size,size);placements=[];
-      for(const m of packable){const pos=pb.insert(m.w+pad,m.h+pad);if(pos)placements.push({...m,x:pos.x,y:pos.y});else skipped.push(m.name);}
-    }
-    self.postMessage({type:'packed',placements,size,skipped});
+    self.postMessage({t:'packed',pl,sz,skip});
   }
   if(type==='encode'){
     const{rgba,W,H}=data;
-    self.postMessage({type:'status',stage:'ENCODING',msg:'Compressing PNG…',pct:95});
-    try{const png=await encodePNG(rgba,W,H);self.postMessage({type:'encoded',png},[png.buffer]);}
-    catch(err){self.postMessage({type:'error',msg:String(err)});}
+    try{const png=await mkPNG(rgba,W,H);self.postMessage({t:'png',png},[png.buffer]);}
+    catch(err){self.postMessage({t:'err',msg:String(err)});}
   }
 };
 `;
 
-const canvas=document.getElementById('atlasCanvas');
-const ctx=canvas.getContext('2d',{willReadFrequently:true});
-let worker=null;
+// ── DOM refs ──────────────────────────────────────────────────────
+const canvas = document.getElementById('atlasCanvas');
+const ctx    = canvas.getContext('2d', {willReadFrequently:true});
+let wk = null;
 
-function makeWorker(){
-  if(worker)worker.terminate();
-  const b=new Blob([WORKER_SRC],{type:'application/javascript'});
-  worker=new Worker(URL.createObjectURL(b));
-  return worker;
+function mkWk(){
+  if(wk) wk.terminate();
+  wk = new Worker(URL.createObjectURL(new Blob([WK],{type:'application/javascript'})));
+  return wk;
 }
 
-function setPct(n){const p=Math.min(100,Math.round(n));document.getElementById('pctLabel').textContent=p+'%';document.getElementById('progressFill').style.width=p+'%';}
-function setStage(s){document.getElementById('stageName').textContent=s;}
-function setMsg(m){document.getElementById('progressMsg').textContent=m;}
-function phase(i){
+// ── UI helpers ────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function setPct(n){
+  const p=Math.min(100,Math.max(0,Math.round(n)));
+  $('pctTxt').textContent = p;
+  $('fillBar').style.width = p+'%';
+}
+
+function setPhase(i){
   ['ph0','ph1','ph2','ph3'].forEach((id,j)=>{
-    document.getElementById(id).className='phase'+(j<i?' done':j===i?' active':'');
+    $( id).className = 'phase-item'+(j<i?' done':j===i?' active':'');
   });
 }
-function show(id){document.getElementById(id).classList.add('show');}
-function hide(id){document.getElementById(id).classList.remove('show');}
 
-function resetUI(){
-  hide('statsGrid');hide('previewCard');hide('dlBtn');hide('warnBox');
-  setPct(0);setStage('LOADING');setMsg('Reading ZIP…');phase(0);
-  show('progressPanel');
+function on(id){ $(id).classList.add('on'); }
+function off(id){ $(id).classList.remove('on'); }
+
+function ui(stage, label, msg, pct){
+  $('stageTxt').textContent = stage;
+  $('labelTxt').textContent = label;
+  $('msgTxt').textContent   = msg || '';
+  if(pct !== undefined) setPct(pct);
 }
 
-const zone=document.getElementById('dropZone');
-zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('over');});
-zone.addEventListener('dragleave',()=>zone.classList.remove('over'));
-zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('over');if(e.dataTransfer.files[0])run(e.dataTransfer.files[0]);});
-document.getElementById('zipInput').addEventListener('change',e=>{if(e.target.files[0])run(e.target.files[0]);});
+// ── Drop zone ─────────────────────────────────────────────────────
+const zone = $('dropZone');
+zone.addEventListener('dragover',  e=>{e.preventDefault();zone.classList.add('over');});
+zone.addEventListener('dragleave', ()=>zone.classList.remove('over'));
+zone.addEventListener('drop',      e=>{e.preventDefault();zone.classList.remove('over');if(e.dataTransfer.files[0])run(e.dataTransfer.files[0]);});
+$('zipInput').addEventListener('change', e=>{if(e.target.files[0])run(e.target.files[0]);});
 
+// ── Load single image, return img, immediately free on done ───────
 function loadImg(blob){
   return new Promise((res,rej)=>{
-    const img=new Image(),url=URL.createObjectURL(blob);
-    img.onload=()=>{URL.revokeObjectURL(url);res(img);};
-    img.onerror=()=>{URL.revokeObjectURL(url);rej();};
-    img.src=url;
+    const img=new Image(), url=URL.createObjectURL(blob);
+    img.onload  = ()=>{ URL.revokeObjectURL(url); res(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(); };
+    img.src = url;
   });
 }
 
+// ── Yield helper ─────────────────────────────────────────────────
+const yld = ()=>new Promise(r=>setTimeout(r, 16));
+
+// ═══ MAIN ════════════════════════════════════════════════════════
 async function run(file){
-  resetUI();
-  const startSize=parseInt(document.getElementById('startSize').value);
-  const maxSize=parseInt(document.getElementById('maxSize').value);
-  const pad=Math.max(0,parseInt(document.getElementById('padding').value)||0);
-  const BATCH=4;
+  const startSize = parseInt($('startSize').value);
+  const maxSize   = parseInt($('maxSize').value);
+  const pad       = Math.max(0, parseInt($('padding').value)||0);
+
+  // Reset
+  off('stats'); off('prevWrap'); off('dlBtn'); off('warnBox');
+  on('prog');
+  ui('LOADING','Opening ZIP…','', 0);
+  setPhase(0);
 
   let zip;
-  try{zip=await JSZip.loadAsync(file);}
-  catch(e){setMsg('Could not open ZIP.');return;}
+  try { zip = await JSZip.loadAsync(file); }
+  catch(e){ ui('ERROR','Could not open ZIP','Check the file and try again.'); return; }
 
-  const entries=Object.values(zip.files).filter(f=>!f.dir&&/\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name));
-  if(!entries.length){setMsg('No images found.');return;}
-  phase(1);setStage('READING');
+  // All image entries — only metadata kept, NOT blobs
+  const entries = Object.values(zip.files)
+    .filter(f=>!f.dir && /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name));
 
-  const meta=[];
-  for(let i=0;i<entries.length;i+=BATCH){
-    const batch=entries.slice(i,i+BATCH);
-    const results=await Promise.allSettled(batch.map(async e=>{
-      const blob=await e.async('blob');
-      const img=await loadImg(blob);
-      const w=img.width,h=img.height;
-      img.src='';
-      return{blob,name:e.name,w,h};
-    }));
-    results.forEach(r=>r.status==='fulfilled'&&meta.push(r.value));
-    setPct(((i+BATCH)/entries.length)*40);
-    setMsg('Reading '+(Math.min(i+BATCH,entries.length))+' / '+entries.length+'…');
-    await new Promise(r=>setTimeout(r,0));
-  }
+  if(!entries.length){ ui('ERROR','No images found','ZIP must contain PNG, JPG or WEBP files.'); return; }
 
-  phase(2);
-  const metaForWorker=meta.map(m=>({name:m.name,w:m.w,h:m.h}));
-  const w=makeWorker();
-  const{placements,size,skipped}=await new Promise((res,rej)=>{
-    w.onmessage=e=>{
-      if(e.data.type==='status'){setMsg(e.data.msg);setPct(e.data.pct);}
-      if(e.data.type==='packed')res(e.data);
-      if(e.data.type==='error')rej(new Error(e.data.msg));
-    };
-    w.onerror=err=>rej(err);
-    w.postMessage({type:'pack',data:{meta:metaForWorker,startSize,maxSize,pad}});
-  });
+  ui('READING', 'Reading dimensions…', `0 / ${entries.length}`, 0);
+  setPhase(0);
 
-  phase(3);setStage('DRAWING');
-  canvas.width=size;canvas.height=size;ctx.clearRect(0,0,size,size);
+  // ── PHASE 1: measure dimensions one at a time ─────────────────
+  // KEY: decompress from ZIP → decode → get w/h → free blob immediately.
+  // Only {idx, w, h} is kept. Zero blobs in memory after this phase.
+  const meta = []; // [{idx, w, h}]
 
-  const blobMap={};meta.forEach(m=>{blobMap[m.name]=m.blob;});
+  for(let i=0; i<entries.length; i++){
+    let blob, img;
+    try {
+      blob = await entries[i].async('blob');
+      img  = await loadImg(blob);
+    } catch { blob=null; continue; } // skip unreadable files
 
-  for(let i=0;i<placements.length;i++){
-    const p=placements[i];
-    const blob=blobMap[p.name];
-    if(!blob)continue;
-    const img=await loadImg(blob);
-    ctx.drawImage(img,p.x,p.y,p.w,p.h);
-    img.src='';
-    blobMap[p.name]=null;
-    setPct(55+(i/placements.length)*42);
-    if(i%BATCH===0){
-      setMsg('Drawing '+(i+1)+' / '+placements.length+'…');
-      await new Promise(r=>setTimeout(r,0));
+    meta.push({ idx:i, w:img.width, h:img.height });
+
+    // Immediately free everything
+    img.src = '';
+    blob    = null;
+
+    // Update UI every 20 images
+    if(i % 20 === 0 || i === entries.length-1){
+      setPct((i/entries.length)*38);
+      $('msgTxt').textContent = `${i+1} / ${entries.length}`;
+      await yld();
     }
   }
 
-  ['ph0','ph1','ph2','ph3'].forEach(id=>document.getElementById(id).className='phase done');
-  setPct(100);setStage('DONE');setMsg('Atlas complete — '+size+'×'+size+'px');
+  // ── PHASE 2: pack (worker, pure math) ────────────────────────
+  setPhase(1);
+  ui('PACKING', 'Calculating layout…', 'Sending to worker…', 40);
+  await yld();
 
-  const filled=placements.reduce((s,p)=>s+p.w*p.h,0);
-  const fillPct=((filled/(size*size))*100).toFixed(1);
-  document.getElementById('stPacked').textContent=placements.length.toLocaleString();
-  document.getElementById('stSkipped').textContent=skipped.length.toLocaleString();
-  document.getElementById('stSize').textContent=size+'px';
-  document.getElementById('stFill').textContent=fillPct+'%';
-  show('statsGrid');
-  document.getElementById('previewDims').textContent=size+' × '+size+' · RGBA';
-  show('previewCard');
-  show('dlBtn');
+  const {pl: placements, sz: size, skip: skippedIdx} = await new Promise((res,rej)=>{
+    const w = mkWk();
+    w.onmessage = e=>{
+      const d=e.data;
+      if(d.t==='msg'){ $('msgTxt').textContent=d.msg; }
+      if(d.t==='packed'){ w.terminate(); res(d); }
+      if(d.t==='err'){ w.terminate(); rej(new Error(d.msg)); }
+    };
+    w.onerror = err=>{ rej(err); };
+    w.postMessage({type:'pack', data:{meta, start:startSize, max:maxSize, pad}});
+  });
 
-  if(skipped.length){
-    const wb=document.getElementById('warnBox');
-    const names=skipped.slice(0,6).map(n=>n.split('/').pop()).join(', ');
-    wb.innerHTML='<strong>⚠ '+skipped.length+' image'+(skipped.length>1?'s':'')+' skipped</strong> — try increasing Max Size.<br><span style="opacity:.6;font-size:11px">'+names+(skipped.length>6?' + '+(skipped.length-6)+' more':'')+' </span>';
-    show('warnBox');
+  // ── PHASE 3: draw — one image at a time, free immediately ─────
+  setPhase(2);
+  canvas.width  = size;
+  canvas.height = size;
+  ctx.clearRect(0,0,size,size);
+
+  // Build index lookup
+  const entryByIdx = {};
+  entries.forEach((e,i)=>{ entryByIdx[i]=e; });
+
+  for(let i=0; i<placements.length; i++){
+    const p = placements[i];
+    const entry = entryByIdx[p.idx];
+    if(!entry) continue;
+
+    let blob, img;
+    try {
+      blob = await entry.async('blob'); // decompress from ZIP on demand
+      img  = await loadImg(blob);
+    } catch { blob=null; continue; }
+
+    ctx.drawImage(img, p.x, p.y, p.w, p.h);
+
+    // Free immediately — do not accumulate
+    img.src = '';
+    blob    = null;
+
+    const pct = 50 + (i / placements.length) * 46;
+    if(i % 16 === 0 || i === placements.length-1){
+      setPct(pct);
+      ui('DRAWING', `Drawing textures…`, `${i+1} / ${placements.length}`, pct);
+      await yld(); // let GC run, keep UI alive
+    }
+  }
+
+  // ── Done ──────────────────────────────────────────────────────
+  setPhase(3);
+  setPct(100);
+
+  const skippedNames = skippedIdx.map(i=> entries[i] ? entries[i].name.split('/').pop() : '?');
+  const filled = placements.reduce((s,p)=>s+p.w*p.h,0);
+  const fillPct = ((filled/(size*size))*100).toFixed(1);
+
+  ui('DONE', 'Atlas complete!', `${size}×${size}px · ${placements.length} textures packed`);
+
+  $('sn0').textContent = placements.length.toLocaleString();
+  $('sn1').textContent = skippedIdx.length.toLocaleString();
+  $('sn2').textContent = size+'px';
+  $('sn3').textContent = fillPct+'%';
+  on('stats');
+
+  $('prevDim').textContent = `${size} × ${size} · RGBA`;
+  on('prevWrap');
+  on('dlBtn');
+
+  if(skippedIdx.length){
+    const wb=$('warnBox');
+    const names=skippedNames.slice(0,5).join(', ');
+    wb.innerHTML=`<strong>⚠ ${skippedIdx.length} image${skippedIdx.length>1?'s':''} skipped</strong> — atlas full. Try increasing Max Size.<br><span style="opacity:.55;font-size:10px">${names}${skippedIdx.length>5?' + '+(skippedIdx.length-5)+' more':''}</span>`;
+    on('warnBox');
   }
 }
 
-async function startDownload(){
-  const btn=document.getElementById('dlBtn');
+// ═══ DOWNLOAD ════════════════════════════════════════════════════
+async function doDownload(){
+  const btn=$('dlBtn');
   btn.disabled=true;
-  btn.querySelector('.dl-text').textContent='ENCODING…';
-  const W=canvas.width,H=canvas.height,STRIP=128;
+  $('dlTxt').textContent='ENCODING…';
+
+  const W=canvas.width, H=canvas.height, STRIP=64;
   const rgba=new Uint8Array(W*H*4);
-  let offset=0;
+  let off=0;
+
+  // Read canvas in narrow strips to avoid one giant allocation
   for(let y=0;y<H;y+=STRIP){
     const h=Math.min(STRIP,H-y);
-    rgba.set(ctx.getImageData(0,y,W,h).data,offset);
-    offset+=W*h*4;
-    await new Promise(r=>setTimeout(r,0));
+    rgba.set(ctx.getImageData(0,y,W,h).data, off);
+    off+=W*h*4;
+    if(y%(STRIP*8)===0) await yld();
   }
-  const w=makeWorker();
+
+  const w=mkWk();
   w.onmessage=e=>{
-    if(e.data.type==='encoded'){
+    if(e.data.t==='png'){
       const blob=new Blob([e.data.png],{type:'image/png'});
       const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');a.href=url;a.download='texture_atlas.png';a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),5000);
-      btn.disabled=false;btn.querySelector('.dl-text').textContent='DOWNLOAD ATLAS PNG';w.terminate();
+      const a=document.createElement('a');
+      a.href=url; a.download='texture_atlas.png'; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),8000);
+      btn.disabled=false;
+      $('dlTxt').textContent='DOWNLOAD ATLAS PNG';
+      w.terminate();
     }
-    if(e.data.type==='error'){alert('Encoding failed: '+e.data.msg);btn.disabled=false;btn.querySelector('.dl-text').textContent='DOWNLOAD ATLAS PNG';w.terminate();}
+    if(e.data.t==='err'){
+      alert('PNG encode failed:\n'+e.data.msg);
+      btn.disabled=false;$('dlTxt').textContent='DOWNLOAD ATLAS PNG';w.terminate();
+    }
   };
+  w.onerror=err=>{alert('Worker error: '+err.message);btn.disabled=false;$('dlTxt').textContent='DOWNLOAD ATLAS PNG';w.terminate();};
   w.postMessage({type:'encode',data:{rgba,W,H}},[rgba.buffer]);
 }
 </script>
