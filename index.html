@@ -2,47 +2,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ultra Texture Atlas Generator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Atlas Generator</title>
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <style>
+
 body{
-background:#0f0f0f;
+background:#0d0d0d;
 color:white;
-font-family:Arial;
+font-family:system-ui;
+margin:0;
+padding:20px;
 text-align:center;
-padding:15px;
 }
 
-#drop{
+.container{
+max-width:600px;
+margin:auto;
+}
+
+h1{
+font-size:22px;
+margin-bottom:10px;
+}
+
+.upload{
 border:2px dashed #555;
-border-radius:10px;
+border-radius:12px;
 padding:30px;
-margin:20px;
+margin-top:20px;
+}
+
+input{
+margin-top:10px;
 }
 
 button{
-padding:12px;
-margin:8px;
-font-size:16px;
-border-radius:8px;
+background:#1ea7ff;
 border:none;
-background:#00aaff;
+padding:12px 18px;
+border-radius:8px;
 color:white;
+font-size:16px;
+margin-top:15px;
 }
 
 canvas{
+margin-top:20px;
 max-width:100%;
+border-radius:8px;
+border:1px solid #333;
+}
+
+.progress{
+height:10px;
+background:#222;
+border-radius:10px;
 margin-top:15px;
-border:2px solid #333;
+overflow:hidden;
+}
+
+.bar{
+height:100%;
+width:0%;
+background:#1ea7ff;
 }
 
 #status{
 margin-top:10px;
 color:#aaa;
+font-size:14px;
 }
 
 </style>
@@ -50,24 +84,41 @@ color:#aaa;
 
 <body>
 
-<h2>Ultra Texture Atlas Generator</h2>
-<p>Supports up to 100,000+ textures</p>
+<div class="container">
 
+<h1>Texture Atlas Generator</h1>
+
+<div class="upload">
+Upload Texture ZIP
+<br>
 <input type="file" id="zipInput" accept=".zip">
+</div>
+
+<div class="progress">
+<div class="bar" id="bar"></div>
+</div>
 
 <div id="status">Waiting for ZIP...</div>
 
-<div id="atlases"></div>
+<canvas id="atlas"></canvas>
 
-<button onclick="downloadJSON()">Download UV JSON</button>
+<button onclick="downloadAtlas()">Download Atlas</button>
+
+</div>
 
 <script>
 
-const ATLAS_SIZE = 4096
-const BATCH_DELAY = 5
+const MAX_SIZE = 2048
 
-let uvmap = {}
-let atlasIndex = 0
+let canvas=document.getElementById("atlas")
+let ctx=canvas.getContext("2d")
+
+canvas.width=MAX_SIZE
+canvas.height=MAX_SIZE
+
+let x=0
+let y=0
+let rowHeight=0
 
 document.getElementById("zipInput").addEventListener("change",e=>{
 processZip(e.target.files[0])
@@ -75,127 +126,66 @@ processZip(e.target.files[0])
 
 async function processZip(file){
 
-const status = document.getElementById("status")
+const status=document.getElementById("status")
+const bar=document.getElementById("bar")
 
-status.innerText="Reading ZIP..."
+status.innerText="Opening ZIP..."
 
-const zip = await JSZip.loadAsync(file)
+const zip=await JSZip.loadAsync(file)
 
-let textures = []
+const files=[]
 
 for(const name in zip.files){
 
 if(name.match(/\.(png|jpg|jpeg|webp)$/i)){
-
-textures.push({name,file:zip.files[name]})
-
+files.push(zip.files[name])
 }
 
 }
 
-status.innerText="Found "+textures.length+" textures"
+status.innerText="Textures found: "+files.length
 
-await buildAtlases(textures)
+for(let i=0;i<files.length;i++){
 
-status.innerText="Done!"
+const blob=await files[i].async("blob")
 
-}
-
-async function buildAtlases(textures){
-
-let canvas=createAtlas()
-let ctx=canvas.getContext("2d")
-
-let x=0
-let y=0
-let rowH=0
-
-for(let i=0;i<textures.length;i++){
-
-const tex=textures[i]
-
-const blob=await tex.file.async("blob")
 const img=await loadImage(blob)
 
-if(x+img.width>ATLAS_SIZE){
+placeTexture(img)
 
-x=0
-y+=rowH
-rowH=0
+URL.revokeObjectURL(img.src)
+
+bar.style.width=((i/files.length)*100)+"%"
+
+status.innerText="Processing "+(i+1)+" / "+files.length
+
+await sleep(5)
 
 }
 
-if(y+img.height>ATLAS_SIZE){
+status.innerText="Atlas complete!"
 
-createDownload(canvas,atlasIndex)
+}
 
-atlasIndex++
+function placeTexture(img){
 
-canvas=createAtlas()
-ctx=canvas.getContext("2d")
+if(x+img.width>MAX_SIZE){
 
 x=0
-y=0
-rowH=0
+y+=rowHeight
+rowHeight=0
 
+}
+
+if(y+img.height>MAX_SIZE){
+return
 }
 
 ctx.drawImage(img,x,y)
 
-uvmap[tex.name]={
-atlas:atlasIndex,
-x:x,
-y:y,
-w:img.width,
-h:img.height
-}
+rowHeight=Math.max(rowHeight,img.height)
 
-rowH=Math.max(rowH,img.height)
 x+=img.width
-
-if(i%50===0){
-
-document.getElementById("status").innerText=
-"Packing "+i+" / "+textures.length
-
-await sleep(BATCH_DELAY)
-
-}
-
-}
-
-createDownload(canvas,atlasIndex)
-
-}
-
-function createAtlas(){
-
-const canvas=document.createElement("canvas")
-
-canvas.width=ATLAS_SIZE
-canvas.height=ATLAS_SIZE
-
-document.getElementById("atlases").appendChild(canvas)
-
-return canvas
-
-}
-
-function createDownload(canvas,index){
-
-const link=document.createElement("a")
-
-link.innerText="Download Atlas "+index
-link.style.display="block"
-
-link.onclick=()=>{
-const a=document.createElement("a")
-a.href=canvas.toDataURL("image/png")
-a.download="atlas_"+index+".png"
-a.click()
-}
-
-document.body.appendChild(link)
 
 }
 
@@ -209,20 +199,15 @@ img.src=URL.createObjectURL(blob)
 
 }
 
-function downloadJSON(){
+function downloadAtlas(){
 
-const blob=new Blob(
-[JSON.stringify(uvmap,null,2)],
-{type:"application/json"}
-)
+const link=document.createElement("a")
 
-const url=URL.createObjectURL(blob)
+link.href=canvas.toDataURL("image/png")
 
-const a=document.createElement("a")
+link.download="texture_atlas.png"
 
-a.href=url
-a.download="uv_map.json"
-a.click()
+link.click()
 
 }
 
