@@ -31,7 +31,6 @@ body{
   overflow-x:hidden;
 }
 
-/* Grid background */
 body::before{
   content:'';
   position:fixed;
@@ -52,364 +51,83 @@ body::before{
   padding:40px 20px 60px;
 }
 
-/* Header */
 header{
-  display:flex;
-  align-items:flex-end;
-  gap:14px;
-  margin-bottom:48px;
-  border-bottom:1px solid var(--border-bright);
-  padding-bottom:24px;
+  display:flex;align-items:flex-end;gap:14px;
+  margin-bottom:48px;border-bottom:1px solid var(--border-bright);padding-bottom:24px;
 }
 
 .logo-mark{
-  width:44px;
-  height:44px;
-  background:var(--accent);
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  grid-template-rows:1fr 1fr;
-  gap:3px;
-  padding:6px;
-  flex-shrink:0;
+  width:44px;height:44px;background:var(--accent);
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+  gap:3px;padding:6px;flex-shrink:0;
 }
+.logo-mark span{background:var(--bg);display:block;}
+.logo-mark span:last-child{background:var(--accent2);}
 
-.logo-mark span{
-  background:var(--bg);
-  display:block;
-}
+h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1.1;}
+h1 small{display:block;font-size:11px;font-weight:400;color:var(--muted);letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:4px;}
 
-.logo-mark span:last-child{
-  background:var(--accent2);
-}
-
-h1{
-  font-family:'Syne',sans-serif;
-  font-size:22px;
-  font-weight:800;
-  letter-spacing:-0.5px;
-  line-height:1.1;
-  color:var(--text);
-}
-
-h1 small{
-  display:block;
-  font-size:11px;
-  font-weight:400;
-  color:var(--muted);
-  letter-spacing:2px;
-  text-transform:uppercase;
-  font-family:'DM Mono',monospace;
-  margin-bottom:4px;
-}
-
-/* Upload zone */
 .upload-zone{
-  border:1px solid var(--border-bright);
-  border-radius:4px;
-  padding:40px 30px;
-  background:var(--surface);
-  cursor:pointer;
-  transition:border-color .15s, background .15s;
-  position:relative;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:12px;
+  border:1px solid var(--border-bright);border-radius:4px;padding:40px 30px;
+  background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s;
+  position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:12px;
 }
+.upload-zone::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(232,255,71,.03) 0%,transparent 60%);pointer-events:none;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:#131300;}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-icon{width:48px;height:48px;border:1px solid var(--border-bright);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:22px;transition:border-color .15s,color .15s;}
+.upload-zone:hover .upload-icon,.upload-zone.drag .upload-icon{border-color:var(--accent);color:var(--accent);}
+.upload-label{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;}
+.upload-sub{font-size:11px;color:var(--muted);letter-spacing:1px;}
 
-.upload-zone::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  background:linear-gradient(135deg, rgba(232,255,71,0.03) 0%, transparent 60%);
-  pointer-events:none;
+.settings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+select,input[type=number]{
+  background:var(--surface);border:1px solid var(--border-bright);border-radius:4px;
+  color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:10px 12px;
+  appearance:none;-webkit-appearance:none;outline:none;transition:border-color .15s;width:100%;
 }
+select:focus,input[type=number]:focus{border-color:var(--accent);}
+.select-wrap{position:relative;}
+.select-wrap::after{content:'↓';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:12px;}
 
-.upload-zone:hover, .upload-zone.drag{
-  border-color:var(--accent);
-  background:#131300;
-}
-
-.upload-zone input{
-  position:absolute;
-  inset:0;
-  opacity:0;
-  cursor:pointer;
-  width:100%;
-  height:100%;
-}
-
-.upload-icon{
-  width:48px;
-  height:48px;
-  border:1px solid var(--border-bright);
-  border-radius:4px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:var(--muted);
-  font-size:22px;
-  transition:border-color .15s, color .15s;
-}
-
-.upload-zone:hover .upload-icon,
-.upload-zone.drag .upload-icon{
-  border-color:var(--accent);
-  color:var(--accent);
-}
-
-.upload-label{
-  font-family:'Syne',sans-serif;
-  font-size:15px;
-  font-weight:600;
-  color:var(--text);
-}
-
-.upload-sub{
-  font-size:11px;
-  color:var(--muted);
-  letter-spacing:1px;
-}
-
-/* Settings row */
-.settings{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:12px;
-  margin-top:16px;
-}
-
-.field{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-
-label{
-  font-size:10px;
-  letter-spacing:2px;
-  text-transform:uppercase;
-  color:var(--muted);
-}
-
-select, input[type=number]{
-  background:var(--surface);
-  border:1px solid var(--border-bright);
-  border-radius:4px;
-  color:var(--text);
-  font-family:'DM Mono',monospace;
-  font-size:13px;
-  padding:10px 12px;
-  appearance:none;
-  -webkit-appearance:none;
-  outline:none;
-  transition:border-color .15s;
-  width:100%;
-}
-
-select:focus, input[type=number]:focus{
-  border-color:var(--accent);
-}
-
-.select-wrap{
-  position:relative;
-}
-
-.select-wrap::after{
-  content:'↓';
-  position:absolute;
-  right:12px;
-  top:50%;
-  transform:translateY(-50%);
-  color:var(--muted);
-  pointer-events:none;
-  font-size:12px;
-}
-
-/* Progress */
-.progress-block{
-  margin-top:24px;
-  display:none;
-}
-
+.progress-block{margin-top:24px;display:none;}
 .progress-block.show{display:block;}
+.progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.progress-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+#pct{font-size:13px;color:var(--accent);font-weight:500;}
+.bar-track{height:3px;background:var(--muted2);border-radius:2px;overflow:hidden;}
+.bar-fill{height:100%;width:0%;background:var(--accent);transition:width .08s linear;border-radius:2px;}
+#status{margin-top:10px;font-size:12px;color:var(--muted);min-height:18px;}
 
-.progress-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:8px;
-}
-
-.progress-label{
-  font-size:10px;
-  letter-spacing:2px;
-  text-transform:uppercase;
-  color:var(--muted);
-}
-
-#pct{
-  font-size:13px;
-  color:var(--accent);
-  font-weight:500;
-}
-
-.bar-track{
-  height:3px;
-  background:var(--muted2);
-  border-radius:2px;
-  overflow:hidden;
-}
-
-.bar-fill{
-  height:100%;
-  width:0%;
-  background:var(--accent);
-  transition:width .1s linear;
-  border-radius:2px;
-}
-
-#status{
-  margin-top:10px;
-  font-size:12px;
-  color:var(--muted);
-  min-height:18px;
-}
-
-/* Stats */
-.stats{
-  display:none;
-  grid-template-columns:repeat(3,1fr);
-  gap:1px;
-  background:var(--border-bright);
-  border:1px solid var(--border-bright);
-  border-radius:4px;
-  overflow:hidden;
-  margin-top:24px;
-}
-
+.stats{display:none;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border-bright);border:1px solid var(--border-bright);border-radius:4px;overflow:hidden;margin-top:24px;}
 .stats.show{display:grid;}
+.stat{background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:4px;}
+.stat-value{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--accent);line-height:1;}
+.stat-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
 
-.stat{
-  background:var(--surface);
-  padding:16px;
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-}
-
-.stat-value{
-  font-family:'Syne',sans-serif;
-  font-size:22px;
-  font-weight:800;
-  color:var(--accent);
-  line-height:1;
-}
-
-.stat-label{
-  font-size:10px;
-  letter-spacing:1.5px;
-  text-transform:uppercase;
-  color:var(--muted);
-}
-
-/* Preview */
-.preview-wrap{
-  display:none;
-  margin-top:24px;
-  border:1px solid var(--border-bright);
-  border-radius:4px;
-  overflow:hidden;
-  background:repeating-conic-gradient(#1a1a1a 0% 25%, #111 0% 50%) 0 0 / 16px 16px;
-  position:relative;
-}
-
+.preview-wrap{display:none;margin-top:24px;border:1px solid var(--border-bright);border-radius:4px;overflow:hidden;background:repeating-conic-gradient(#1a1a1a 0% 25%,#111 0% 50%) 0 0/16px 16px;}
 .preview-wrap.show{display:block;}
+.preview-header{background:var(--surface);border-bottom:1px solid var(--border-bright);padding:10px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center;}
+#atlasCanvas{display:block;max-width:100%;width:100%;image-rendering:pixelated;}
 
-.preview-header{
-  background:var(--surface);
-  border-bottom:1px solid var(--border-bright);
-  padding:10px 14px;
-  font-size:10px;
-  letter-spacing:2px;
-  text-transform:uppercase;
-  color:var(--muted);
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-
-#atlasCanvas{
-  display:block;
-  max-width:100%;
-  width:100%;
-  image-rendering:pixelated;
-}
-
-/* Button */
-#dlBtn{
-  display:none;
-  width:100%;
-  margin-top:12px;
-  background:var(--accent);
-  color:#000;
-  border:none;
-  border-radius:4px;
-  font-family:'Syne',sans-serif;
-  font-size:14px;
-  font-weight:800;
-  letter-spacing:1px;
-  text-transform:uppercase;
-  padding:16px 24px;
-  cursor:pointer;
-  transition:background .15s, transform .1s;
-  position:relative;
-  overflow:hidden;
-}
-
+#dlBtn{display:none;width:100%;margin-top:12px;background:var(--accent);color:#000;border:none;border-radius:4px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:16px 24px;cursor:pointer;transition:background .15s,transform .1s;}
 #dlBtn.show{display:block;}
-
 #dlBtn:hover{background:#d4eb30;transform:translateY(-1px);}
 #dlBtn:active{transform:translateY(0);}
+#dlBtn::after{content:'↓';margin-left:8px;font-size:16px;}
 
-#dlBtn::after{
-  content:'↓';
-  margin-left:8px;
-  font-size:16px;
-}
-
-/* Skipped notice */
-#skipped{
-  display:none;
-  margin-top:12px;
-  padding:12px 14px;
-  background:#1a0800;
-  border:1px solid #331500;
-  border-radius:4px;
-  font-size:11px;
-  color:var(--accent2);
-  letter-spacing:0.5px;
-}
-
-#skipped.show{display:block;}
-
+#skippedBox{display:none;margin-top:12px;padding:12px 14px;background:#1a0800;border:1px solid #331500;border-radius:4px;font-size:11px;color:var(--accent2);letter-spacing:.5px;line-height:1.6;}
+#skippedBox.show{display:block;}
 </style>
 </head>
 <body>
-
 <div class="wrap">
 
   <header>
-    <div class="logo-mark">
-      <span></span><span></span>
-      <span></span><span></span>
-    </div>
-    <h1>
-      <small>Tool / v2</small>
-      Atlas Generator
-    </h1>
+    <div class="logo-mark"><span></span><span></span><span></span><span></span></div>
+    <h1><small>Tool / v3</small>Atlas Generator</h1>
   </header>
 
   <div class="upload-zone" id="dropZone">
@@ -427,6 +145,7 @@ select:focus, input[type=number]:focus{
           <option value="1024">1024 × 1024</option>
           <option value="2048" selected>2048 × 2048</option>
           <option value="4096">4096 × 4096</option>
+          <option value="8192">8192 × 8192</option>
         </select>
       </div>
     </div>
@@ -441,25 +160,14 @@ select:focus, input[type=number]:focus{
       <span class="progress-label">Processing</span>
       <span id="pct">0%</span>
     </div>
-    <div class="bar-track">
-      <div class="bar-fill" id="barFill"></div>
-    </div>
+    <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
     <div id="status">Waiting…</div>
   </div>
 
   <div class="stats" id="statsRow">
-    <div class="stat">
-      <div class="stat-value" id="statPacked">—</div>
-      <div class="stat-label">Packed</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value" id="statSkipped">—</div>
-      <div class="stat-label">Skipped</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value" id="statFill">—</div>
-      <div class="stat-label">Fill %</div>
-    </div>
+    <div class="stat"><div class="stat-value" id="statPacked">—</div><div class="stat-label">Packed</div></div>
+    <div class="stat"><div class="stat-value" id="statSkipped">—</div><div class="stat-label">Skipped</div></div>
+    <div class="stat"><div class="stat-value" id="statFill">—</div><div class="stat-label">Fill %</div></div>
   </div>
 
   <div class="preview-wrap" id="previewWrap">
@@ -470,190 +178,176 @@ select:focus, input[type=number]:focus{
     <canvas id="atlasCanvas"></canvas>
   </div>
 
-  <div id="skipped"></div>
-
+  <div id="skippedBox"></div>
   <button id="dlBtn" onclick="downloadAtlas()">Download Atlas PNG</button>
 
 </div>
-
 <script>
-// ─── state ────────────────────────────────────────────────────────────────────
-let canvas = document.getElementById('atlasCanvas');
-let ctx = canvas.getContext('2d');
-let skippedFiles = [];
-let packedCount = 0;
-let totalPixelsFilled = 0;
+// ─── MaxRects bin packing (BSSF — Best Short Side Fit) ────────────────────────
+class MaxRects {
+  constructor(w, h) {
+    this.W = w; this.H = h;
+    this.free = [{ x:0, y:0, w, h }];
+  }
 
-// ─── drag/drop ────────────────────────────────────────────────────────────────
-const zone = document.getElementById('dropZone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
-zone.addEventListener('drop', e => {
-  e.preventDefault();
-  zone.classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if (f) processZip(f);
-});
-document.getElementById('zipInput').addEventListener('change', e => {
-  if (e.target.files[0]) processZip(e.target.files[0]);
-});
+  insert(rw, rh) {
+    let best = null, bestScore = Infinity;
+    for (const f of this.free) {
+      if (rw <= f.w && rh <= f.h) {
+        const score = Math.min(f.w - rw, f.h - rh);
+        if (score < bestScore) { bestScore = score; best = f; }
+      }
+    }
+    if (!best) return null;
+    const placed = { x: best.x, y: best.y, w: rw, h: rh };
+    this._split(placed);
+    this._prune();
+    return { x: placed.x, y: placed.y };
+  }
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-function setStatus(msg) { document.getElementById('status').textContent = msg; }
-function setPct(n) {
-  const p = Math.round(n);
-  document.getElementById('pct').textContent = p + '%';
-  document.getElementById('barFill').style.width = p + '%';
+  _split(p) {
+    const next = [];
+    for (const f of this.free) {
+      if (!this._overlaps(p, f)) { next.push(f); continue; }
+      if (p.x > f.x)               next.push({ x:f.x,       y:f.y, w:p.x-f.x,             h:f.h });
+      if (p.x+p.w < f.x+f.w)       next.push({ x:p.x+p.w,   y:f.y, w:(f.x+f.w)-(p.x+p.w), h:f.h });
+      if (p.y > f.y)               next.push({ x:f.x, y:f.y,       w:f.w, h:p.y-f.y             });
+      if (p.y+p.h < f.y+f.h)       next.push({ x:f.x, y:p.y+p.h,   w:f.w, h:(f.y+f.h)-(p.y+p.h) });
+    }
+    this.free = next;
+  }
+
+  _prune() {
+    this.free = this.free.filter((a,i) =>
+      !this.free.some((b,j) => j!==i && b.x<=a.x && b.y<=a.y && b.x+b.w>=a.x+a.w && b.y+b.h>=a.y+a.h)
+    );
+  }
+
+  _overlaps(a, b) {
+    return !(a.x+a.w<=b.x || b.x+b.w<=a.x || a.y+a.h<=b.y || b.y+b.h<=a.y);
+  }
 }
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function loadImage(blob) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    const url = URL.createObjectURL(blob);
-    img.onload = () => { res(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); rej(); };
+// ─── UI ───────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('atlasCanvas');
+const ctx    = canvas.getContext('2d');
+
+function setStatus(t){ document.getElementById('status').textContent = t; }
+function setPct(n){
+  const p = Math.min(100, Math.round(n));
+  document.getElementById('pct').textContent = p+'%';
+  document.getElementById('barFill').style.width = p+'%';
+}
+function sleep(){ return new Promise(r => requestAnimationFrame(r)); }
+
+function loadImage(blob){
+  return new Promise((res,rej)=>{
+    const img = new Image(), url = URL.createObjectURL(blob);
+    img.onload  = ()=>{ URL.revokeObjectURL(url); res(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(); };
     img.src = url;
   });
 }
 
-// ─── MaxRects bin packing (shelf fallback for speed on mobile) ────────────────
-// Simple shelf-next-fit: very fast, good enough for textures
-class ShelfPacker {
-  constructor(w, h, pad) {
-    this.W = w; this.H = h; this.pad = pad;
-    this.shelves = []; // [{y, h, x}]
-    this.currentShelf = null;
-  }
-  pack(w, h) {
-    const p = this.pad;
-    const fw = w + p, fh = h + p;
-    // try current shelf
-    if (this.currentShelf) {
-      const s = this.currentShelf;
-      if (s.x + fw <= this.W && fh <= s.h) {
-        const pos = { x: s.x, y: s.y };
-        s.x += fw;
-        return pos;
-      }
-    }
-    // new shelf
-    const usedH = this.shelves.reduce((a, s) => a + s.h, 0);
-    if (usedH + fh > this.H) return null; // no space
-    const shelf = { y: usedH, h: fh, x: 0 };
-    this.shelves.push(shelf);
-    this.currentShelf = shelf;
-    const pos = { x: 0, y: usedH };
-    shelf.x = fw;
-    return pos;
-  }
-}
+const zone = document.getElementById('dropZone');
+zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', ()=> zone.classList.remove('drag'));
+zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files[0]) processZip(e.dataTransfer.files[0]); });
+document.getElementById('zipInput').addEventListener('change', e=>{ if(e.target.files[0]) processZip(e.target.files[0]); });
 
-// ─── main ─────────────────────────────────────────────────────────────────────
-async function processZip(file) {
+// ─── Main ─────────────────────────────────────────────────────────────────────
+async function processZip(file){
   const ATLAS = parseInt(document.getElementById('atlasSize').value);
-  const PAD   = parseInt(document.getElementById('padding').value) || 0;
-  const CHUNK = 8; // images per animation frame batch
+  const PAD   = Math.max(0, parseInt(document.getElementById('padding').value)||0);
+  const CHUNK = 12;
 
-  skippedFiles = []; packedCount = 0; totalPixelsFilled = 0;
-
-  // UI reset
   document.getElementById('progressBlock').classList.add('show');
   document.getElementById('statsRow').classList.remove('show');
   document.getElementById('previewWrap').classList.remove('show');
   document.getElementById('dlBtn').classList.remove('show');
-  document.getElementById('skipped').classList.remove('show');
-  setPct(0);
-  setStatus('Opening ZIP…');
+  document.getElementById('skippedBox').classList.remove('show');
+  setPct(0); setStatus('Opening ZIP…');
 
-  // Setup canvas
-  canvas.width  = ATLAS;
-  canvas.height = ATLAS;
-  ctx.clearRect(0, 0, ATLAS, ATLAS);
+  canvas.width = ATLAS; canvas.height = ATLAS;
+  ctx.clearRect(0,0,ATLAS,ATLAS);
 
   let zip;
   try { zip = await JSZip.loadAsync(file); }
-  catch(e) { setStatus('⚠ Could not read ZIP file.'); return; }
+  catch(e){ setStatus('⚠ Could not read ZIP.'); return; }
 
-  const entries = Object.values(zip.files).filter(f =>
-    !f.dir && /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name)
-  );
+  const entries = Object.values(zip.files)
+    .filter(f => !f.dir && /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name));
 
-  if (!entries.length) { setStatus('No image files found in ZIP.'); return; }
+  if(!entries.length){ setStatus('No images found in ZIP.'); return; }
   setStatus(`Found ${entries.length} images — loading…`);
 
-  // Load all images first (blobs → Image objects) in chunks
+  // Load in batches
   const images = [];
-  for (let i = 0; i < entries.length; i += CHUNK) {
-    const batch = entries.slice(i, i + CHUNK);
-    const loaded = await Promise.all(batch.map(async e => {
-      try {
-        const blob = await e.async('blob');
-        const img  = await loadImage(blob);
-        URL.revokeObjectURL(img.src); // free memory early
-        return { img, name: e.name };
-      } catch { return null; }
+  for(let i=0; i<entries.length; i+=CHUNK){
+    const batch = entries.slice(i, i+CHUNK);
+    const results = await Promise.allSettled(batch.map(async e=>{
+      const blob = await e.async('blob');
+      const img  = await loadImage(blob);
+      return { img, name: e.name };
     }));
-    loaded.forEach(r => r && images.push(r));
-    setPct((i / entries.length) * 40);
-    setStatus(`Loading ${Math.min(i + CHUNK, entries.length)} / ${entries.length}…`);
-    await sleep(0); // yield to browser
+    results.forEach(r => r.status==='fulfilled' && images.push(r.value));
+    setPct((i/entries.length)*45);
+    setStatus(`Loading ${Math.min(i+CHUNK, entries.length)} / ${entries.length}…`);
+    await sleep();
   }
 
-  // Sort by height desc for better packing
-  images.sort((a, b) => b.img.height - a.img.height);
+  // Sort largest area first — key for MaxRects quality
+  images.sort((a,b) => (b.img.width*b.img.height) - (a.img.width*a.img.height));
 
-  // Pack
-  const packer = new ShelfPacker(ATLAS, ATLAS, PAD);
-  setStatus('Packing…');
+  const packer = new MaxRects(ATLAS, ATLAS);
+  const skipped = [];
+  let packed=0, filled=0;
 
-  for (let i = 0; i < images.length; i++) {
-    const { img, name } = images[i];
-    const pos = packer.pack(img.width, img.height);
-    if (!pos) {
-      skippedFiles.push(name);
-    } else {
+  for(let i=0; i<images.length; i++){
+    const {img, name} = images[i];
+    const pw = img.width + PAD, ph = img.height + PAD;
+    if(pw > ATLAS || ph > ATLAS){ skipped.push(name); continue; }
+
+    const pos = packer.insert(pw, ph);
+    if(!pos){ skipped.push(name); }
+    else {
       ctx.drawImage(img, pos.x, pos.y, img.width, img.height);
-      packedCount++;
-      totalPixelsFilled += img.width * img.height;
+      packed++; filled += img.width * img.height;
     }
 
-    if (i % CHUNK === 0) {
-      setPct(40 + (i / images.length) * 55);
-      setStatus(`Packing ${i + 1} / ${images.length}…`);
-      await sleep(0);
+    if(i % CHUNK === 0){
+      setPct(45 + (i/images.length)*53);
+      setStatus(`Packing ${i+1} / ${images.length}…`);
+      await sleep();
     }
   }
 
-  setPct(100);
-  setStatus('Done.');
+  setPct(100); setStatus('Complete.');
 
-  // Stats
-  const fillPct = ((totalPixelsFilled / (ATLAS * ATLAS)) * 100).toFixed(1);
-  document.getElementById('statPacked').textContent   = packedCount;
-  document.getElementById('statSkipped').textContent  = skippedFiles.length;
-  document.getElementById('statFill').textContent     = fillPct + '%';
+  const fillPct = ((filled/(ATLAS*ATLAS))*100).toFixed(1);
+  document.getElementById('statPacked').textContent  = packed;
+  document.getElementById('statSkipped').textContent = skipped.length;
+  document.getElementById('statFill').textContent    = fillPct+'%';
   document.getElementById('statsRow').classList.add('show');
-  document.getElementById('previewDims').textContent  = `${ATLAS} × ${ATLAS}`;
+  document.getElementById('previewDims').textContent = `${ATLAS} × ${ATLAS}`;
   document.getElementById('previewWrap').classList.add('show');
   document.getElementById('dlBtn').classList.add('show');
 
-  if (skippedFiles.length) {
-    const el = document.getElementById('skipped');
-    el.textContent = `⚠ ${skippedFiles.length} image(s) skipped — didn't fit: ${skippedFiles.slice(0,5).map(n=>n.split('/').pop()).join(', ')}${skippedFiles.length>5?' …':''}`;
-    el.classList.add('show');
+  if(skipped.length){
+    const box = document.getElementById('skippedBox');
+    const names = skipped.slice(0,8).map(n=>n.split('/').pop()).join(', ');
+    box.innerHTML = `<b>⚠ ${skipped.length} image(s) didn't fit</b> — try a larger atlas size (4096 or 8192).<br>
+      <span style="opacity:.7">${names}${skipped.length>8 ? ` + ${skipped.length-8} more…`:''}</span>`;
+    box.classList.add('show');
   }
 }
 
-// ─── download ─────────────────────────────────────────────────────────────────
-function downloadAtlas() {
-  canvas.toBlob(blob => {
-    const url  = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href     = url;
-    link.download = 'texture_atlas.png';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+function downloadAtlas(){
+  canvas.toBlob(blob=>{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download='texture_atlas.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
   }, 'image/png');
 }
 </script>
