@@ -831,42 +831,20 @@ async function run(file){
 }
 
 // ═══ DOWNLOAD ════════════════════════════════════════════════════
-async function doDownload(){
+function doDownload(){
   const btn=$('dlBtn');
   btn.disabled=true;
-  $('dlTxt').textContent='ENCODING…';
-
-  const W=canvas.width, H=canvas.height, STRIP=64;
-  const rgba=new Uint8Array(W*H*4);
-  let off=0;
-
-  // Read canvas in narrow strips to avoid one giant allocation
-  for(let y=0;y<H;y+=STRIP){
-    const h=Math.min(STRIP,H-y);
-    rgba.set(ctx.getImageData(0,y,W,h).data, off);
-    off+=W*h*4;
-    if(y%(STRIP*8)===0) await yld();
-  }
-
-  const w=mkWk();
-  w.onmessage=e=>{
-    if(e.data.t==='png'){
-      const blob=new Blob([e.data.png],{type:'image/png'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url; a.download='texture_atlas.png'; a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),8000);
-      btn.disabled=false;
-      $('dlTxt').textContent='DOWNLOAD ATLAS PNG';
-      w.terminate();
-    }
-    if(e.data.t==='err'){
-      alert('PNG encode failed:\n'+e.data.msg);
-      btn.disabled=false;$('dlTxt').textContent='DOWNLOAD ATLAS PNG';w.terminate();
-    }
-  };
-  w.onerror=err=>{alert('Worker error: '+err.message);btn.disabled=false;$('dlTxt').textContent='DOWNLOAD ATLAS PNG';w.terminate();};
-  w.postMessage({type:'encode',data:{rgba,W,H}},[rgba.buffer]);
+  $('dlTxt').textContent='SAVING…';
+  // Use the browser's own PNG encoder — always correct, no custom code needed
+  canvas.toBlob(blob=>{
+    if(!blob){alert('Export failed.');btn.disabled=false;$('dlTxt').textContent='DOWNLOAD ATLAS PNG';return;}
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='texture_atlas.png';a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    btn.disabled=false;
+    $('dlTxt').textContent='DOWNLOAD ATLAS PNG';
+  },'image/png');
 }
 </script>
 </body>
