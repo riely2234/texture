@@ -139,13 +139,12 @@ select:focus,input[type=number]:focus{border-color:var(--accent);}
 
   <div class="settings">
     <div class="field">
-      <label>Atlas Size</label>
+      <label>Starting Size</label>
       <div class="select-wrap">
         <select id="atlasSize">
-          <option value="1024">1024 × 1024</option>
-          <option value="2048" selected>2048 × 2048</option>
-          <option value="4096">4096 × 4096</option>
-          <option value="8192">8192 × 8192</option>
+          <option value="512">512 (auto-grow)</option>
+          <option value="1024" selected>1024 (auto-grow)</option>
+          <option value="2048">2048 (auto-grow)</option>
         </select>
       </div>
     </div>
@@ -255,11 +254,27 @@ zone.addEventListener('dragleave', ()=> zone.classList.remove('drag'));
 zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files[0]) processZip(e.dataTransfer.files[0]); });
 document.getElementById('zipInput').addEventListener('change', e=>{ if(e.target.files[0]) processZip(e.target.files[0]); });
 
+// ─── Pure JS pack (no canvas) — returns placements or null if doesn't fit ─────
+function tryPack(images, size, pad) {
+  const packer = new MaxRects(size, size);
+  const placements = [];
+  for (const {img, name} of images) {
+    const pw = img.width + pad, ph = img.height + pad;
+    if (pw > size || ph > size) return null; // single image bigger than canvas
+    const pos = packer.insert(pw, ph);
+    if (!pos) return null; // ran out of space
+    placements.push({ img, name, x: pos.x, y: pos.y });
+  }
+  return placements;
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function processZip(file){
-  const ATLAS = parseInt(document.getElementById('atlasSize').value);
+  const START = parseInt(document.getElementById('atlasSize').value);
   const PAD   = Math.max(0, parseInt(document.getElementById('padding').value)||0);
   const CHUNK = 12;
+  // Browser canvas hard limit is typically 16384px; stay safe at 32768 but cap at 16384
+  const MAX_SIZE = 16384;
 
   document.getElementById('progressBlock').classList.add('show');
   document.getElementById('statsRow').classList.remove('show');
@@ -267,9 +282,6 @@ async function processZip(file){
   document.getElementById('dlBtn').classList.remove('show');
   document.getElementById('skippedBox').classList.remove('show');
   setPct(0); setStatus('Opening ZIP…');
-
-  canvas.width = ATLAS; canvas.height = ATLAS;
-  ctx.clearRect(0,0,ATLAS,ATLAS);
 
   let zip;
   try { zip = await JSZip.loadAsync(file); }
@@ -281,7 +293,7 @@ async function processZip(file){
   if(!entries.length){ setStatus('No images found in ZIP.'); return; }
   setStatus(`Found ${entries.length} images — loading…`);
 
-  // Load in batches
+  // Load all images first
   const images = [];
   for(let i=0; i<entries.length; i+=CHUNK){
     const batch = entries.slice(i, i+CHUNK);
@@ -291,56 +303,90 @@ async function processZip(file){
       return { img, name: e.name };
     }));
     results.forEach(r => r.status==='fulfilled' && images.push(r.value));
-    setPct((i/entries.length)*45);
+    setPct((i/entries.length)*40);
     setStatus(`Loading ${Math.min(i+CHUNK, entries.length)} / ${entries.length}…`);
     await sleep();
   }
 
-  // Sort largest area first — key for MaxRects quality
+  // Sort largest area first
   images.sort((a,b) => (b.img.width*b.img.height) - (a.img.width*a.img.height));
 
-  const packer = new MaxRects(ATLAS, ATLAS);
-  const skipped = [];
-  let packed=0, filled=0;
+  // Find the largest single image dimension to set a floor
+  const minRequired = images.reduce((m,{img}) => Math.max(m, img.width+PAD, img.height+PAD), 0);
+  let size = Math.max(START, nextPow2(minRequired));
 
-  for(let i=0; i<images.length; i++){
-    const {img, name} = images[i];
-    const pw = img.width + PAD, ph = img.height + PAD;
-    if(pw > ATLAS || ph > ATLAS){ skipped.push(name); continue; }
+  // Auto-grow: try packing, double until everything fits or we hit the limit
+  let placements = null;
+  let oversized  = []; // images individually too large even at max
 
-    const pos = packer.insert(pw, ph);
-    if(!pos){ skipped.push(name); }
-    else {
-      ctx.drawImage(img, pos.x, pos.y, img.width, img.height);
-      packed++; filled += img.width * img.height;
+  // First filter out any images that won't fit even at MAX_SIZE
+  const packable = images.filter(({img, name}) => {
+    if (img.width+PAD <= MAX_SIZE && img.height+PAD <= MAX_SIZE) return true;
+    oversized.push(name);
+    return false;
+  });
+
+  setStatus('Finding optimal atlas size…');
+  while (size <= MAX_SIZE) {
+    setPct(40 + Math.log2(size/START) / Math.log2(MAX_SIZE/START) * 30);
+    setStatus(`Trying ${size}×${size}…`);
+    await sleep();
+    placements = tryPack(packable, size, PAD);
+    if (placements) break;
+    size *= 2;
+  }
+
+  if (!placements) {
+    // Shouldn't happen since we filtered oversized, but fallback: pack as many as fit
+    size = MAX_SIZE;
+    const packer2 = new MaxRects(size, size);
+    placements = [];
+    const skippedNames = [...oversized];
+    for (const {img, name} of packable) {
+      const pos = packer2.insert(img.width+PAD, img.height+PAD);
+      if (pos) placements.push({img, name, x:pos.x, y:pos.y});
+      else skippedNames.push(name);
     }
+    oversized = skippedNames;
+  }
 
+  // Draw onto canvas at final size
+  canvas.width  = size;
+  canvas.height = size;
+  ctx.clearRect(0,0,size,size);
+
+  setStatus(`Drawing ${placements.length} images…`);
+  for(let i=0; i<placements.length; i++){
+    const {img,x,y} = placements[i];
+    ctx.drawImage(img, x, y, img.width, img.height);
     if(i % CHUNK === 0){
-      setPct(45 + (i/images.length)*53);
-      setStatus(`Packing ${i+1} / ${images.length}…`);
+      setPct(70 + (i/placements.length)*28);
       await sleep();
     }
   }
 
   setPct(100); setStatus('Complete.');
 
-  const fillPct = ((filled/(ATLAS*ATLAS))*100).toFixed(1);
-  document.getElementById('statPacked').textContent  = packed;
-  document.getElementById('statSkipped').textContent = skipped.length;
+  const filled  = placements.reduce((s,{img})=>s+img.width*img.height, 0);
+  const fillPct = ((filled/(size*size))*100).toFixed(1);
+  document.getElementById('statPacked').textContent  = placements.length;
+  document.getElementById('statSkipped').textContent = oversized.length;
   document.getElementById('statFill').textContent    = fillPct+'%';
   document.getElementById('statsRow').classList.add('show');
-  document.getElementById('previewDims').textContent = `${ATLAS} × ${ATLAS}`;
+  document.getElementById('previewDims').textContent = `${size} × ${size}`;
   document.getElementById('previewWrap').classList.add('show');
   document.getElementById('dlBtn').classList.add('show');
 
-  if(skipped.length){
+  if(oversized.length){
     const box = document.getElementById('skippedBox');
-    const names = skipped.slice(0,8).map(n=>n.split('/').pop()).join(', ');
-    box.innerHTML = `<b>⚠ ${skipped.length} image(s) didn't fit</b> — try a larger atlas size (4096 or 8192).<br>
-      <span style="opacity:.7">${names}${skipped.length>8 ? ` + ${skipped.length-8} more…`:''}</span>`;
+    const names = oversized.slice(0,8).map(n=>n.split('/').pop()).join(', ');
+    box.innerHTML = `<b>⚠ ${oversized.length} image(s) skipped</b> — individually exceeded the browser's 16384px canvas limit.<br>
+      <span style="opacity:.7">${names}${oversized.length>8?` + ${oversized.length-8} more…`:''}</span>`;
     box.classList.add('show');
   }
 }
+
+function nextPow2(n){ let p=1; while(p<n) p*=2; return p; }
 
 function downloadAtlas(){
   canvas.toBlob(blob=>{
