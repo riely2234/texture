@@ -1,222 +1,661 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-
 <title>Atlas Generator</title>
-
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
 <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;800&display=swap');
 
-body{
-background:#0d0d0d;
-color:white;
-font-family:system-ui;
-margin:0;
-padding:20px;
-text-align:center;
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0a0a0a;
+  --surface:#111;
+  --border:#1e1e1e;
+  --border-bright:#2a2a2a;
+  --accent:#e8ff47;
+  --accent2:#ff6b35;
+  --text:#f0f0f0;
+  --muted:#555;
+  --muted2:#333;
 }
 
-.container{
-max-width:600px;
-margin:auto;
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'DM Mono',monospace;
+  min-height:100vh;
+  padding:0;
+  overflow-x:hidden;
+}
+
+/* Grid background */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+.wrap{
+  position:relative;
+  z-index:1;
+  max-width:720px;
+  margin:0 auto;
+  padding:40px 20px 60px;
+}
+
+/* Header */
+header{
+  display:flex;
+  align-items:flex-end;
+  gap:14px;
+  margin-bottom:48px;
+  border-bottom:1px solid var(--border-bright);
+  padding-bottom:24px;
+}
+
+.logo-mark{
+  width:44px;
+  height:44px;
+  background:var(--accent);
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;
+  gap:3px;
+  padding:6px;
+  flex-shrink:0;
+}
+
+.logo-mark span{
+  background:var(--bg);
+  display:block;
+}
+
+.logo-mark span:last-child{
+  background:var(--accent2);
 }
 
 h1{
-font-size:22px;
-margin-bottom:10px;
+  font-family:'Syne',sans-serif;
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:-0.5px;
+  line-height:1.1;
+  color:var(--text);
 }
 
-.upload{
-border:2px dashed #555;
-border-radius:12px;
-padding:30px;
-margin-top:20px;
+h1 small{
+  display:block;
+  font-size:11px;
+  font-weight:400;
+  color:var(--muted);
+  letter-spacing:2px;
+  text-transform:uppercase;
+  font-family:'DM Mono',monospace;
+  margin-bottom:4px;
 }
 
-input{
-margin-top:10px;
+/* Upload zone */
+.upload-zone{
+  border:1px solid var(--border-bright);
+  border-radius:4px;
+  padding:40px 30px;
+  background:var(--surface);
+  cursor:pointer;
+  transition:border-color .15s, background .15s;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:12px;
 }
 
-button{
-background:#1ea7ff;
-border:none;
-padding:12px 18px;
-border-radius:8px;
-color:white;
-font-size:16px;
-margin-top:15px;
+.upload-zone::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg, rgba(232,255,71,0.03) 0%, transparent 60%);
+  pointer-events:none;
 }
 
-canvas{
-margin-top:20px;
-max-width:100%;
-border-radius:8px;
-border:1px solid #333;
+.upload-zone:hover, .upload-zone.drag{
+  border-color:var(--accent);
+  background:#131300;
 }
 
-.progress{
-height:10px;
-background:#222;
-border-radius:10px;
-margin-top:15px;
-overflow:hidden;
+.upload-zone input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+  width:100%;
+  height:100%;
 }
 
-.bar{
-height:100%;
-width:0%;
-background:#1ea7ff;
+.upload-icon{
+  width:48px;
+  height:48px;
+  border:1px solid var(--border-bright);
+  border-radius:4px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--muted);
+  font-size:22px;
+  transition:border-color .15s, color .15s;
+}
+
+.upload-zone:hover .upload-icon,
+.upload-zone.drag .upload-icon{
+  border-color:var(--accent);
+  color:var(--accent);
+}
+
+.upload-label{
+  font-family:'Syne',sans-serif;
+  font-size:15px;
+  font-weight:600;
+  color:var(--text);
+}
+
+.upload-sub{
+  font-size:11px;
+  color:var(--muted);
+  letter-spacing:1px;
+}
+
+/* Settings row */
+.settings{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-top:16px;
+}
+
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+label{
+  font-size:10px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+select, input[type=number]{
+  background:var(--surface);
+  border:1px solid var(--border-bright);
+  border-radius:4px;
+  color:var(--text);
+  font-family:'DM Mono',monospace;
+  font-size:13px;
+  padding:10px 12px;
+  appearance:none;
+  -webkit-appearance:none;
+  outline:none;
+  transition:border-color .15s;
+  width:100%;
+}
+
+select:focus, input[type=number]:focus{
+  border-color:var(--accent);
+}
+
+.select-wrap{
+  position:relative;
+}
+
+.select-wrap::after{
+  content:'↓';
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  color:var(--muted);
+  pointer-events:none;
+  font-size:12px;
+}
+
+/* Progress */
+.progress-block{
+  margin-top:24px;
+  display:none;
+}
+
+.progress-block.show{display:block;}
+
+.progress-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+
+.progress-label{
+  font-size:10px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+#pct{
+  font-size:13px;
+  color:var(--accent);
+  font-weight:500;
+}
+
+.bar-track{
+  height:3px;
+  background:var(--muted2);
+  border-radius:2px;
+  overflow:hidden;
+}
+
+.bar-fill{
+  height:100%;
+  width:0%;
+  background:var(--accent);
+  transition:width .1s linear;
+  border-radius:2px;
 }
 
 #status{
-margin-top:10px;
-color:#aaa;
-font-size:14px;
+  margin-top:10px;
+  font-size:12px;
+  color:var(--muted);
+  min-height:18px;
 }
+
+/* Stats */
+.stats{
+  display:none;
+  grid-template-columns:repeat(3,1fr);
+  gap:1px;
+  background:var(--border-bright);
+  border:1px solid var(--border-bright);
+  border-radius:4px;
+  overflow:hidden;
+  margin-top:24px;
+}
+
+.stats.show{display:grid;}
+
+.stat{
+  background:var(--surface);
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.stat-value{
+  font-family:'Syne',sans-serif;
+  font-size:22px;
+  font-weight:800;
+  color:var(--accent);
+  line-height:1;
+}
+
+.stat-label{
+  font-size:10px;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+/* Preview */
+.preview-wrap{
+  display:none;
+  margin-top:24px;
+  border:1px solid var(--border-bright);
+  border-radius:4px;
+  overflow:hidden;
+  background:repeating-conic-gradient(#1a1a1a 0% 25%, #111 0% 50%) 0 0 / 16px 16px;
+  position:relative;
+}
+
+.preview-wrap.show{display:block;}
+
+.preview-header{
+  background:var(--surface);
+  border-bottom:1px solid var(--border-bright);
+  padding:10px 14px;
+  font-size:10px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+#atlasCanvas{
+  display:block;
+  max-width:100%;
+  width:100%;
+  image-rendering:pixelated;
+}
+
+/* Button */
+#dlBtn{
+  display:none;
+  width:100%;
+  margin-top:12px;
+  background:var(--accent);
+  color:#000;
+  border:none;
+  border-radius:4px;
+  font-family:'Syne',sans-serif;
+  font-size:14px;
+  font-weight:800;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  padding:16px 24px;
+  cursor:pointer;
+  transition:background .15s, transform .1s;
+  position:relative;
+  overflow:hidden;
+}
+
+#dlBtn.show{display:block;}
+
+#dlBtn:hover{background:#d4eb30;transform:translateY(-1px);}
+#dlBtn:active{transform:translateY(0);}
+
+#dlBtn::after{
+  content:'↓';
+  margin-left:8px;
+  font-size:16px;
+}
+
+/* Skipped notice */
+#skipped{
+  display:none;
+  margin-top:12px;
+  padding:12px 14px;
+  background:#1a0800;
+  border:1px solid #331500;
+  border-radius:4px;
+  font-size:11px;
+  color:var(--accent2);
+  letter-spacing:0.5px;
+}
+
+#skipped.show{display:block;}
 
 </style>
 </head>
-
 <body>
 
-<div class="container">
+<div class="wrap">
 
-<h1>Texture Atlas Generator</h1>
+  <header>
+    <div class="logo-mark">
+      <span></span><span></span>
+      <span></span><span></span>
+    </div>
+    <h1>
+      <small>Tool / v2</small>
+      Atlas Generator
+    </h1>
+  </header>
 
-<div class="upload">
-Upload Texture ZIP
-<br>
-<input type="file" id="zipInput" accept=".zip">
-</div>
+  <div class="upload-zone" id="dropZone">
+    <input type="file" id="zipInput" accept=".zip">
+    <div class="upload-icon">&#9723;</div>
+    <div class="upload-label">Drop a ZIP of textures</div>
+    <div class="upload-sub">PNG · JPG · WEBP supported</div>
+  </div>
 
-<div class="progress">
-<div class="bar" id="bar"></div>
-</div>
+  <div class="settings">
+    <div class="field">
+      <label>Atlas Size</label>
+      <div class="select-wrap">
+        <select id="atlasSize">
+          <option value="1024">1024 × 1024</option>
+          <option value="2048" selected>2048 × 2048</option>
+          <option value="4096">4096 × 4096</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Padding (px)</label>
+      <input type="number" id="padding" value="2" min="0" max="32">
+    </div>
+  </div>
 
-<div id="status">Waiting for ZIP...</div>
+  <div class="progress-block" id="progressBlock">
+    <div class="progress-header">
+      <span class="progress-label">Processing</span>
+      <span id="pct">0%</span>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" id="barFill"></div>
+    </div>
+    <div id="status">Waiting…</div>
+  </div>
 
-<canvas id="atlas"></canvas>
+  <div class="stats" id="statsRow">
+    <div class="stat">
+      <div class="stat-value" id="statPacked">—</div>
+      <div class="stat-label">Packed</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statSkipped">—</div>
+      <div class="stat-label">Skipped</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="statFill">—</div>
+      <div class="stat-label">Fill %</div>
+    </div>
+  </div>
 
-<button onclick="downloadAtlas()">Download Atlas</button>
+  <div class="preview-wrap" id="previewWrap">
+    <div class="preview-header">
+      <span>Preview</span>
+      <span id="previewDims">—</span>
+    </div>
+    <canvas id="atlasCanvas"></canvas>
+  </div>
+
+  <div id="skipped"></div>
+
+  <button id="dlBtn" onclick="downloadAtlas()">Download Atlas PNG</button>
 
 </div>
 
 <script>
+// ─── state ────────────────────────────────────────────────────────────────────
+let canvas = document.getElementById('atlasCanvas');
+let ctx = canvas.getContext('2d');
+let skippedFiles = [];
+let packedCount = 0;
+let totalPixelsFilled = 0;
 
-const MAX_SIZE = 2048
+// ─── drag/drop ────────────────────────────────────────────────────────────────
+const zone = document.getElementById('dropZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) processZip(f);
+});
+document.getElementById('zipInput').addEventListener('change', e => {
+  if (e.target.files[0]) processZip(e.target.files[0]);
+});
 
-let canvas=document.getElementById("atlas")
-let ctx=canvas.getContext("2d")
+// ─── helpers ──────────────────────────────────────────────────────────────────
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+function setPct(n) {
+  const p = Math.round(n);
+  document.getElementById('pct').textContent = p + '%';
+  document.getElementById('barFill').style.width = p + '%';
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-canvas.width=MAX_SIZE
-canvas.height=MAX_SIZE
-
-let x=0
-let y=0
-let rowHeight=0
-
-document.getElementById("zipInput").addEventListener("change",e=>{
-processZip(e.target.files[0])
-})
-
-async function processZip(file){
-
-const status=document.getElementById("status")
-const bar=document.getElementById("bar")
-
-status.innerText="Opening ZIP..."
-
-const zip=await JSZip.loadAsync(file)
-
-const files=[]
-
-for(const name in zip.files){
-
-if(name.match(/\.(png|jpg|jpeg|webp)$/i)){
-files.push(zip.files[name])
+function loadImage(blob) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => { res(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(); };
+    img.src = url;
+  });
 }
 
+// ─── MaxRects bin packing (shelf fallback for speed on mobile) ────────────────
+// Simple shelf-next-fit: very fast, good enough for textures
+class ShelfPacker {
+  constructor(w, h, pad) {
+    this.W = w; this.H = h; this.pad = pad;
+    this.shelves = []; // [{y, h, x}]
+    this.currentShelf = null;
+  }
+  pack(w, h) {
+    const p = this.pad;
+    const fw = w + p, fh = h + p;
+    // try current shelf
+    if (this.currentShelf) {
+      const s = this.currentShelf;
+      if (s.x + fw <= this.W && fh <= s.h) {
+        const pos = { x: s.x, y: s.y };
+        s.x += fw;
+        return pos;
+      }
+    }
+    // new shelf
+    const usedH = this.shelves.reduce((a, s) => a + s.h, 0);
+    if (usedH + fh > this.H) return null; // no space
+    const shelf = { y: usedH, h: fh, x: 0 };
+    this.shelves.push(shelf);
+    this.currentShelf = shelf;
+    const pos = { x: 0, y: usedH };
+    shelf.x = fw;
+    return pos;
+  }
 }
 
-status.innerText="Textures found: "+files.length
+// ─── main ─────────────────────────────────────────────────────────────────────
+async function processZip(file) {
+  const ATLAS = parseInt(document.getElementById('atlasSize').value);
+  const PAD   = parseInt(document.getElementById('padding').value) || 0;
+  const CHUNK = 8; // images per animation frame batch
 
-for(let i=0;i<files.length;i++){
+  skippedFiles = []; packedCount = 0; totalPixelsFilled = 0;
 
-const blob=await files[i].async("blob")
+  // UI reset
+  document.getElementById('progressBlock').classList.add('show');
+  document.getElementById('statsRow').classList.remove('show');
+  document.getElementById('previewWrap').classList.remove('show');
+  document.getElementById('dlBtn').classList.remove('show');
+  document.getElementById('skipped').classList.remove('show');
+  setPct(0);
+  setStatus('Opening ZIP…');
 
-const img=await loadImage(blob)
+  // Setup canvas
+  canvas.width  = ATLAS;
+  canvas.height = ATLAS;
+  ctx.clearRect(0, 0, ATLAS, ATLAS);
 
-placeTexture(img)
+  let zip;
+  try { zip = await JSZip.loadAsync(file); }
+  catch(e) { setStatus('⚠ Could not read ZIP file.'); return; }
 
-URL.revokeObjectURL(img.src)
+  const entries = Object.values(zip.files).filter(f =>
+    !f.dir && /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name)
+  );
 
-bar.style.width=((i/files.length)*100)+"%"
+  if (!entries.length) { setStatus('No image files found in ZIP.'); return; }
+  setStatus(`Found ${entries.length} images — loading…`);
 
-status.innerText="Processing "+(i+1)+" / "+files.length
+  // Load all images first (blobs → Image objects) in chunks
+  const images = [];
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    const batch = entries.slice(i, i + CHUNK);
+    const loaded = await Promise.all(batch.map(async e => {
+      try {
+        const blob = await e.async('blob');
+        const img  = await loadImage(blob);
+        URL.revokeObjectURL(img.src); // free memory early
+        return { img, name: e.name };
+      } catch { return null; }
+    }));
+    loaded.forEach(r => r && images.push(r));
+    setPct((i / entries.length) * 40);
+    setStatus(`Loading ${Math.min(i + CHUNK, entries.length)} / ${entries.length}…`);
+    await sleep(0); // yield to browser
+  }
 
-await sleep(5)
+  // Sort by height desc for better packing
+  images.sort((a, b) => b.img.height - a.img.height);
 
+  // Pack
+  const packer = new ShelfPacker(ATLAS, ATLAS, PAD);
+  setStatus('Packing…');
+
+  for (let i = 0; i < images.length; i++) {
+    const { img, name } = images[i];
+    const pos = packer.pack(img.width, img.height);
+    if (!pos) {
+      skippedFiles.push(name);
+    } else {
+      ctx.drawImage(img, pos.x, pos.y, img.width, img.height);
+      packedCount++;
+      totalPixelsFilled += img.width * img.height;
+    }
+
+    if (i % CHUNK === 0) {
+      setPct(40 + (i / images.length) * 55);
+      setStatus(`Packing ${i + 1} / ${images.length}…`);
+      await sleep(0);
+    }
+  }
+
+  setPct(100);
+  setStatus('Done.');
+
+  // Stats
+  const fillPct = ((totalPixelsFilled / (ATLAS * ATLAS)) * 100).toFixed(1);
+  document.getElementById('statPacked').textContent   = packedCount;
+  document.getElementById('statSkipped').textContent  = skippedFiles.length;
+  document.getElementById('statFill').textContent     = fillPct + '%';
+  document.getElementById('statsRow').classList.add('show');
+  document.getElementById('previewDims').textContent  = `${ATLAS} × ${ATLAS}`;
+  document.getElementById('previewWrap').classList.add('show');
+  document.getElementById('dlBtn').classList.add('show');
+
+  if (skippedFiles.length) {
+    const el = document.getElementById('skipped');
+    el.textContent = `⚠ ${skippedFiles.length} image(s) skipped — didn't fit: ${skippedFiles.slice(0,5).map(n=>n.split('/').pop()).join(', ')}${skippedFiles.length>5?' …':''}`;
+    el.classList.add('show');
+  }
 }
 
-status.innerText="Atlas complete!"
-
+// ─── download ─────────────────────────────────────────────────────────────────
+function downloadAtlas() {
+  canvas.toBlob(blob => {
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = 'texture_atlas.png';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, 'image/png');
 }
-
-function placeTexture(img){
-
-if(x+img.width>MAX_SIZE){
-
-x=0
-y+=rowHeight
-rowHeight=0
-
-}
-
-if(y+img.height>MAX_SIZE){
-return
-}
-
-ctx.drawImage(img,x,y)
-
-rowHeight=Math.max(rowHeight,img.height)
-
-x+=img.width
-
-}
-
-function loadImage(blob){
-
-return new Promise(resolve=>{
-const img=new Image()
-img.onload=()=>resolve(img)
-img.src=URL.createObjectURL(blob)
-})
-
-}
-
-function downloadAtlas(){
-
-const link=document.createElement("a")
-
-link.href=canvas.toDataURL("image/png")
-
-link.download="texture_atlas.png"
-
-link.click()
-
-}
-
-function sleep(ms){
-return new Promise(r=>setTimeout(r,ms))
-}
-
 </script>
-
 </body>
 </html>
-```
