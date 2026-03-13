@@ -114,9 +114,10 @@ select:focus,input[type=number]:focus{border-color:var(--accent);}
 
 #dlBtn{display:none;width:100%;margin-top:12px;background:var(--accent);color:#000;border:none;border-radius:4px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:16px 24px;cursor:pointer;transition:background .15s,transform .1s;}
 #dlBtn.show{display:block;}
-#dlBtn:hover{background:#d4eb30;transform:translateY(-1px);}
-#dlBtn:active{transform:translateY(0);}
-#dlBtn::after{content:'↓';margin-left:8px;font-size:16px;}
+#dlBtn:hover:not(:disabled){background:#d4eb30;transform:translateY(-1px);}
+#dlBtn:active:not(:disabled){transform:translateY(0);}
+#dlBtn:disabled{background:#888;cursor:wait;opacity:.8;}
+#dlBtn:not(:disabled)::after{content:'↓';margin-left:8px;font-size:16px;}
 
 #skippedBox{display:none;margin-top:12px;padding:12px 14px;background:#1a0800;border:1px solid #331500;border-radius:4px;font-size:11px;color:var(--accent2);letter-spacing:.5px;line-height:1.6;}
 #skippedBox.show{display:block;}
@@ -388,13 +389,186 @@ async function processZip(file){
 
 function nextPow2(n){ let p=1; while(p<n) p*=2; return p; }
 
-function downloadAtlas(){
-  canvas.toBlob(blob=>{
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url; a.download='texture_atlas.png'; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
-  }, 'image/png');
+// ─── Download — encode PNG in a Worker so the main thread never freezes ───────
+async function downloadAtlas(){
+  const btn = document.getElementById('dlBtn');
+  btn.textContent = 'Encoding…';
+  btn.disabled = true;
+
+  const W = canvas.width, H = canvas.height;
+
+  // Read pixel data in horizontal strips to avoid one giant allocation spike
+  const STRIP = 256; // rows per strip
+  const strips = [];
+  for(let y=0; y<H; y+=STRIP){
+    const h = Math.min(STRIP, H-y);
+    strips.push(ctx.getImageData(0, y, W, h));
+    await new Promise(r=>setTimeout(r,0)); // yield
+  }
+
+  // Reassemble into one flat Uint8Array
+  const total = W * H * 4;
+  const rgba  = new Uint8Array(total);
+  let offset  = 0;
+  for(const s of strips){
+    rgba.set(s.data, offset);
+    offset += s.data.length;
+  }
+
+  // Encode PNG in a Worker using a self-contained UPNG-style encoder
+  const workerSrc = `
+    // Minimal PNG encoder (deflate via CompressionStream if available, else uncompressed)
+    self.onmessage = async function(e){
+      const {rgba, W, H} = e.data;
+      try {
+        const png = await encodePNG(rgba, W, H);
+        self.postMessage({ok:true, png}, [png.buffer]);
+      } catch(err) {
+        self.postMessage({ok:false, err:String(err)});
+      }
+    };
+
+    async function encodePNG(rgba, W, H){
+      // Filter each row with Sub filter (good for most textures)
+      const rowLen = W*4;
+      const filtered = new Uint8Array(H*(rowLen+1));
+      for(let y=0;y<H;y++){
+        const off = y*rowLen;
+        const foff = y*(rowLen+1);
+        filtered[foff] = 1; // Sub filter
+        filtered[foff+1] = rgba[off]; // first pixel: same as None
+        filtered[foff+2] = rgba[off+1];
+        filtered[foff+3] = rgba[off+2];
+        filtered[foff+4] = rgba[off+3];
+        for(let x=1;x<W;x++){
+          const i=off+x*4, fi=foff+1+x*4;
+          filtered[fi]   = (rgba[i]   - rgba[i-4]) & 0xff;
+          filtered[fi+1] = (rgba[i+1] - rgba[i+1-4]) & 0xff;
+          filtered[fi+2] = (rgba[i+2] - rgba[i+2-4]) & 0xff;
+          filtered[fi+3] = (rgba[i+3] - rgba[i+3-4]) & 0xff;
+        }
+      }
+
+      // Compress with CompressionStream (deflate-raw) — supported in all modern browsers
+      let compressed;
+      if(typeof CompressionStream !== 'undefined'){
+        const cs = new CompressionStream('deflate-raw');
+        const writer = cs.writable.getWriter();
+        writer.write(filtered);
+        writer.close();
+        const chunks=[];
+        const reader = cs.readable.getReader();
+        while(true){
+          const {done,value}=await reader.read();
+          if(done) break;
+          chunks.push(value);
+        }
+        let len=0; chunks.forEach(c=>len+=c.length);
+        compressed=new Uint8Array(len);
+        let pos=0; chunks.forEach(c=>{compressed.set(c,pos);pos+=c.length;});
+      } else {
+        // Fallback: zlib store (no compression, always works)
+        compressed = storeZlib(filtered);
+      }
+
+      return buildPNG(W, H, compressed);
+    }
+
+    function storeZlib(data){
+      // Non-compressed zlib block(s)
+      const BSIZE = 65535;
+      const blocks = Math.ceil(data.length/BSIZE)||1;
+      const out = new Uint8Array(2 + data.length + blocks*5 + 4);
+      out[0]=0x78; out[1]=0x01; // zlib header, no compression
+      let pos=2, src=0;
+      for(let b=0;b<blocks;b++){
+        const chunk=Math.min(BSIZE, data.length-src);
+        const last=b===blocks-1?1:0;
+        out[pos++]=last;
+        out[pos++]=chunk&0xff; out[pos++]=(chunk>>8)&0xff;
+        out[pos++]=(~chunk)&0xff; out[pos++]=((~chunk)>>8)&0xff;
+        out.set(data.subarray(src,src+chunk),pos);
+        pos+=chunk; src+=chunk;
+      }
+      const a=adler32(data);
+      out[pos]=(a>>24)&0xff;out[pos+1]=(a>>16)&0xff;out[pos+2]=(a>>8)&0xff;out[pos+3]=a&0xff;
+      return out;
+    }
+
+    function adler32(d){
+      let a=1,b=0;
+      for(let i=0;i<d.length;i++){a=(a+d[i])%65521;b=(b+a)%65521;}
+      return (b<<16)|a;
+    }
+
+    function buildPNG(W,H,idat){
+      const sig=[137,80,78,71,13,10,26,10];
+      const crc32tab=makeCRC();
+      function crc(d){
+        let c=0xffffffff;
+        for(const b of d) c=crc32tab[(c^b)&0xff]^(c>>>8);
+        return (c^0xffffffff)>>>0;
+      }
+      function makeCRC(){
+        const t=new Uint32Array(256);
+        for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;t[n]=c;}
+        return t;
+      }
+      function chunk(type,data){
+        const t=new TextEncoder().encode(type);
+        const len=new Uint8Array(4);
+        new DataView(len.buffer).setUint32(0,data.length);
+        const crcData=new Uint8Array(4+data.length);
+        crcData.set(t); crcData.set(data,4);
+        const c=new Uint8Array(4);
+        new DataView(c.buffer).setUint32(0,crc(crcData));
+        return [...len,...crcData,...c];
+      }
+
+      const ihdr=new Uint8Array(13);
+      const dv=new DataView(ihdr.buffer);
+      dv.setUint32(0,W); dv.setUint32(4,H);
+      ihdr[8]=8; ihdr[9]=6; ihdr[10]=0; ihdr[11]=0; ihdr[12]=0; // 8-bit RGBA
+
+      const bytes=[
+        ...sig,
+        ...chunk('IHDR',ihdr),
+        ...chunk('IDAT',idat),
+        ...chunk('IEND',new Uint8Array(0))
+      ];
+      return new Uint8Array(bytes);
+    }
+  `;
+
+  const blob   = new Blob([workerSrc], {type:'application/javascript'});
+  const wurl   = URL.createObjectURL(blob);
+  const worker = new Worker(wurl);
+
+  worker.onmessage = function(e){
+    worker.terminate();
+    URL.revokeObjectURL(wurl);
+    btn.textContent = 'Download Atlas PNG';
+    btn.disabled = false;
+    btn.style.setProperty('--after', "'↓'");
+
+    if(!e.data.ok){ alert('PNG encoding failed: '+e.data.err); return; }
+
+    const pngBlob = new Blob([e.data.png], {type:'image/png'});
+    const dl = URL.createObjectURL(pngBlob);
+    const a  = document.createElement('a');
+    a.href=dl; a.download='texture_atlas.png'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(dl), 5000);
+  };
+
+  worker.onerror = function(err){
+    worker.terminate();
+    URL.revokeObjectURL(wurl);
+    btn.textContent = 'Download Atlas PNG';
+    btn.disabled = false;
+    alert('Worker error: '+err.message);
+  };
+
+  worker.postMessage({rgba, W, H}, [rgba.buffer]);
 }
 </script>
 </body>
