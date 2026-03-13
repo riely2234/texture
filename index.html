@@ -255,27 +255,26 @@ zone.addEventListener('dragleave', ()=> zone.classList.remove('drag'));
 zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files[0]) processZip(e.dataTransfer.files[0]); });
 document.getElementById('zipInput').addEventListener('change', e=>{ if(e.target.files[0]) processZip(e.target.files[0]); });
 
-// ─── Pure JS pack (no canvas) — returns placements or null if doesn't fit ─────
-function tryPack(images, size, pad) {
+// ─── Pure JS pack (no canvas, no pixel data) — returns placements or null ─────
+function tryPack(items, size, pad) {
   const packer = new MaxRects(size, size);
   const placements = [];
-  for (const {img, name} of images) {
-    const pw = img.width + pad, ph = img.height + pad;
-    if (pw > size || ph > size) return null; // single image bigger than canvas
+  for (const m of items) {
+    const pw = m.w + pad, ph = m.h + pad;
+    if (pw > size || ph > size) return null;
     const pos = packer.insert(pw, ph);
-    if (!pos) return null; // ran out of space
-    placements.push({ img, name, x: pos.x, y: pos.y });
+    if (!pos) return null;
+    placements.push({ ...m, x: pos.x, y: pos.y });
   }
   return placements;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function processZip(file){
-  const START = parseInt(document.getElementById('atlasSize').value);
-  const PAD   = Math.max(0, parseInt(document.getElementById('padding').value)||0);
-  const CHUNK = 12;
-  // Browser canvas hard limit is typically 16384px; stay safe at 32768 but cap at 16384
+  const START   = parseInt(document.getElementById('atlasSize').value);
+  const PAD     = Math.max(0, parseInt(document.getElementById('padding').value)||0);
   const MAX_SIZE = 16384;
+  const BATCH   = 6; // images loaded at once — keep low to limit peak RAM
 
   document.getElementById('progressBlock').classList.add('show');
   document.getElementById('statsRow').classList.remove('show');
@@ -292,97 +291,99 @@ async function processZip(file){
     .filter(f => !f.dir && /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name));
 
   if(!entries.length){ setStatus('No images found in ZIP.'); return; }
-  setStatus(`Found ${entries.length} images — loading…`);
+  setStatus(`Found ${entries.length} images — reading dimensions…`);
 
-  // Load all images first
-  const images = [];
-  for(let i=0; i<entries.length; i+=CHUNK){
-    const batch = entries.slice(i, i+CHUNK);
+  // ── Phase 1: read dimensions only, store blobs (not Image objects) ──────────
+  // This keeps memory bounded — blobs are compressed, Image objects are not.
+  const meta = []; // { blob, name, w, h }
+  for(let i=0; i<entries.length; i+=BATCH){
+    const batch = entries.slice(i, i+BATCH);
     const results = await Promise.allSettled(batch.map(async e=>{
       const blob = await e.async('blob');
-      const img  = await loadImage(blob);
-      return { img, name: e.name };
+      const img  = await loadImage(blob); // load just to measure
+      const w=img.width, h=img.height;
+      img.src=''; // release decoded bitmap immediately
+      return { blob, name:e.name, w, h };
     }));
-    results.forEach(r => r.status==='fulfilled' && images.push(r.value));
-    setPct((i/entries.length)*40);
-    setStatus(`Loading ${Math.min(i+CHUNK, entries.length)} / ${entries.length}…`);
+    results.forEach(r=> r.status==='fulfilled' && meta.push(r.value));
+    setPct((i/entries.length)*35);
+    setStatus(`Reading ${Math.min(i+BATCH, entries.length)} / ${entries.length}…`);
     await sleep();
   }
 
-  // Sort largest area first
-  images.sort((a,b) => (b.img.width*b.img.height) - (a.img.width*a.img.height));
+  // ── Phase 2: sort + pack (pure math, no pixel data) ─────────────────────────
+  meta.sort((a,b) => (b.w*b.h)-(a.w*a.h));
 
-  // Find the largest single image dimension to set a floor
-  const minRequired = images.reduce((m,{img}) => Math.max(m, img.width+PAD, img.height+PAD), 0);
-  let size = Math.max(START, nextPow2(minRequired));
-
-  // Auto-grow: try packing, double until everything fits or we hit the limit
-  let placements = null;
-  let oversized  = []; // images individually too large even at max
-
-  // First filter out any images that won't fit even at MAX_SIZE
-  const packable = images.filter(({img, name}) => {
-    if (img.width+PAD <= MAX_SIZE && img.height+PAD <= MAX_SIZE) return true;
-    oversized.push(name);
-    return false;
+  const oversized = [];
+  const packable  = meta.filter(m=>{
+    if(m.w+PAD<=MAX_SIZE && m.h+PAD<=MAX_SIZE) return true;
+    oversized.push(m.name); return false;
   });
 
-  setStatus('Finding optimal atlas size…');
-  while (size <= MAX_SIZE) {
-    setPct(40 + Math.log2(size/START) / Math.log2(MAX_SIZE/START) * 30);
+  const minRequired = packable.reduce((mx,m)=>Math.max(mx,m.w+PAD,m.h+PAD),0);
+  let size = Math.max(START, nextPow2(minRequired));
+
+  setStatus('Finding optimal size…');
+  let placements = null;
+  while(size <= MAX_SIZE){
     setStatus(`Trying ${size}×${size}…`);
+    setPct(35 + Math.min(Math.log2(size/START)/Math.log2(MAX_SIZE/START),1)*20);
     await sleep();
     placements = tryPack(packable, size, PAD);
-    if (placements) break;
+    if(placements) break;
     size *= 2;
   }
 
-  if (!placements) {
-    // Shouldn't happen since we filtered oversized, but fallback: pack as many as fit
+  // Fallback: pack as many as fit at MAX_SIZE
+  const skippedNames = [...oversized];
+  if(!placements){
     size = MAX_SIZE;
-    const packer2 = new MaxRects(size, size);
+    const pb = new MaxRects(size,size);
     placements = [];
-    const skippedNames = [...oversized];
-    for (const {img, name} of packable) {
-      const pos = packer2.insert(img.width+PAD, img.height+PAD);
-      if (pos) placements.push({img, name, x:pos.x, y:pos.y});
-      else skippedNames.push(name);
+    for(const m of packable){
+      const pos = pb.insert(m.w+PAD, m.h+PAD);
+      if(pos) placements.push({...m, x:pos.x, y:pos.y});
+      else skippedNames.push(m.name);
     }
-    oversized = skippedNames;
   }
 
-  // Draw onto canvas at final size
+  // ── Phase 3: draw one image at a time, free immediately after ───────────────
   canvas.width  = size;
   canvas.height = size;
   ctx.clearRect(0,0,size,size);
 
-  setStatus(`Drawing ${placements.length} images…`);
   for(let i=0; i<placements.length; i++){
-    const {img,x,y} = placements[i];
-    ctx.drawImage(img, x, y, img.width, img.height);
-    if(i % CHUNK === 0){
-      setPct(70 + (i/placements.length)*28);
-      await sleep();
+    const p = placements[i];
+    // Reload from blob (still in memory), draw, then let it go
+    const img = await loadImage(p.blob);
+    ctx.drawImage(img, p.x, p.y, p.w, p.h);
+    img.src = ''; // release decoded bitmap
+    p.blob  = null; // release blob reference
+
+    setPct(55 + (i/placements.length)*43);
+    if(i % BATCH === 0){
+      setStatus(`Drawing ${i+1} / ${placements.length}…`);
+      await sleep(); // yield every batch so browser can breathe
     }
   }
 
   setPct(100); setStatus('Complete.');
 
-  const filled  = placements.reduce((s,{img})=>s+img.width*img.height, 0);
+  const filled  = placements.reduce((s,p)=>s+p.w*p.h, 0);
   const fillPct = ((filled/(size*size))*100).toFixed(1);
   document.getElementById('statPacked').textContent  = placements.length;
-  document.getElementById('statSkipped').textContent = oversized.length;
+  document.getElementById('statSkipped').textContent = skippedNames.length;
   document.getElementById('statFill').textContent    = fillPct+'%';
   document.getElementById('statsRow').classList.add('show');
   document.getElementById('previewDims').textContent = `${size} × ${size}`;
   document.getElementById('previewWrap').classList.add('show');
   document.getElementById('dlBtn').classList.add('show');
 
-  if(oversized.length){
+  if(skippedNames.length){
     const box = document.getElementById('skippedBox');
-    const names = oversized.slice(0,8).map(n=>n.split('/').pop()).join(', ');
-    box.innerHTML = `<b>⚠ ${oversized.length} image(s) skipped</b> — individually exceeded the browser's 16384px canvas limit.<br>
-      <span style="opacity:.7">${names}${oversized.length>8?` + ${oversized.length-8} more…`:''}</span>`;
+    const names = skippedNames.slice(0,8).map(n=>n.split('/').pop()).join(', ');
+    box.innerHTML = `<b>⚠ ${skippedNames.length} image(s) skipped</b> — didn't fit even at ${MAX_SIZE}px.<br>
+      <span style="opacity:.7">${names}${skippedNames.length>8?` + ${skippedNames.length-8} more…`:''}</span>`;
     box.classList.add('show');
   }
 }
